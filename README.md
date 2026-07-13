@@ -10,15 +10,17 @@
 
 ## 快速安装
 
-在 Ubuntu 宿主机终端执行：
+在 Ubuntu 宿主机终端安装依赖：
 
 ```bash
 sudo apt update
 sudo apt install git flatpak flatpak-builder p7zip-full curl file nodejs npm \
   python3 python3-pil unzip tar
+```
 
-export CODEX_FLATPAK_DIR="/path/to/codex-linux-x86_64-flatpak-redacted"
-cd "$CODEX_FLATPAK_DIR"
+把仓库克隆或解压到任意位置，然后进入能看到 `install.sh` 的仓库根目录，再执行：
+
+```bash
 ./install.sh
 ```
 
@@ -28,7 +30,8 @@ cd "$CODEX_FLATPAK_DIR"
 - 安装 Flatpak Desktop、桌面图标和窗口修复；
 - 安装可选的终端管理命令；
 - 如果缺少 Flatpak SDK 24.08，自动从 Flathub 安装；
-- 停用旧版本遗留的自动升级 timer。
+- 停用旧版本遗留的自动升级 timer；
+- 首次安装时询问文件访问权限。
 
 脚本可以直接从 Bash、Zsh、Dash 等终端执行，不要使用 `source install.sh`。
 
@@ -40,7 +43,27 @@ flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 
 也可以从应用启动器打开“Codex Linux x86_64”。
 
+安装完成后，也可以直接点击应用菜单中的“Codex Linux x86_64”桌面图标启动，不必每次都在终端执行命令。
+
 > 当前锁定版本为 Codex Desktop `26.707.31428` 和 Codex CLI `rust-v0.144.1`。构建脚本会校验下载摘要；`flatpak-sources/` 只在本机构建过程中生成，不提交到仓库。
+
+## 安装时选择文件权限
+
+首次运行 `install.sh` 时，脚本会询问 Codex 的文件访问范围：
+
+- 无额外文件权限：保留应用默认的 Documents 入口；
+- Home 目录：读写当前用户的 Home 目录；
+- 所有文件：只读访问整个宿主机文件系统；
+- Host 权限：读写整个宿主机文件系统，风险最高。
+
+再次运行 `./install.sh` 时，如果已经安装 Codex，脚本会识别现有安装并提供两个选择：重新构建安装 Desktop，或跳过安装、只更新文件权限。也可以直接使用：
+
+```bash
+./install.sh --permissions-only --permission=home
+./install.sh --reinstall --permission=none
+```
+
+权限模式可用 `none`、`home`、`all`、`host` 或 `keep`。使用 `--manager-only` 时不会修改 Desktop 权限。
 
 ## 管理面板
 
@@ -240,4 +263,5 @@ $HOME/.var/app/com.openai.CodexLinuxX64/
 - `install-codex-desktop-integration.sh`：安装桌面入口和窗口修复；
 - `manager/`：终端管理命令和本地网页面板；
 - `flatpak-sources/`：构建过程中生成的临时输入，不提交到仓库；
+- `README.en.md` 和 `Codex_Desktop_Flatpak_User_Guide.md`：英文文档；
 - `tests/`：脚本和管理器测试。
