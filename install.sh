@@ -16,6 +16,8 @@ AUTO_TIMER="$SYSTEMD_DIR/codex-flatpak-manager-auto-upgrade.timer"
 DESKTOP_ACTION="install"
 ACTION_EXPLICIT=0
 PERMISSION_MODE=""
+CURRENT_PERMISSION_MODE="none"
+CURRENT_PERMISSION_STATUS="not-installed"
 
 if [ -n "${FLATPAK_ID:-}" ] && [ "${CODEX_INSTALL_ON_HOST:-0}" != "1" ]; then
   if ! command -v flatpak-spawn >/dev/null 2>&1; then
@@ -50,8 +52,42 @@ permission_label() {
   esac
 }
 
+detect_current_permission_mode() {
+  CURRENT_PERMISSION_MODE="none"
+  CURRENT_PERMISSION_STATUS="not-installed"
+  if ! command -v flatpak >/dev/null 2>&1 ||
+    ! flatpak info --user "$APP_ID" >/dev/null 2>&1; then
+    return
+  fi
+
+  CURRENT_PERMISSION_STATUS="known"
+  filesystems="$(flatpak override --user --show "$APP_ID" 2>/dev/null |
+    awk -F= '/^filesystems=/{print $2; exit}' | sed 's/;$//')"
+  case "$filesystems" in
+    "") CURRENT_PERMISSION_MODE="none" ;;
+    home) CURRENT_PERMISSION_MODE="home" ;;
+    host:ro) CURRENT_PERMISSION_MODE="all" ;;
+    host) CURRENT_PERMISSION_MODE="host" ;;
+    *)
+      CURRENT_PERMISSION_MODE="none"
+      CURRENT_PERMISSION_STATUS="unknown"
+      warn "Could not map the current Flatpak filesystem permissions; defaulting to no extra filesystem access."
+      ;;
+  esac
+}
+
+permission_option() {
+  mode="$1"
+  number="$2"
+  label="$(permission_label "$mode")"
+  marker=""
+  [ "$CURRENT_PERMISSION_MODE" = "$mode" ] && marker=" ← 当前"
+  printf '  %s) %s%s\n' "$number" "$label" "$marker"
+}
+
 show_current_permissions() {
   if command -v flatpak >/dev/null 2>&1 && flatpak info --user "$APP_ID" >/dev/null 2>&1; then
+    info "识别到当前权限类型：$(permission_label "$CURRENT_PERMISSION_MODE")"
     info "当前 Flatpak 文件权限："
     flatpak override --user --show "$APP_ID" 2>/dev/null || true
   else
@@ -103,23 +139,31 @@ choose_permission_mode() {
     PERMISSION_MODE="$CODEX_PERMISSION_MODE"
   elif [ "${CODEX_NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; then
     if [ "$DESKTOP_ACTION" = "install" ]; then
-      PERMISSION_MODE="none"
+      PERMISSION_MODE="$CURRENT_PERMISSION_MODE"
     else
-      PERMISSION_MODE="keep"
+      PERMISSION_MODE="$CURRENT_PERMISSION_MODE"
     fi
     info "Non-interactive mode: $(permission_label "$PERMISSION_MODE")"
     return
   else
     printf '\n%s\n' '请选择 Codex Desktop 的文件访问权限：'
-    printf '%s\n' '  1) 无额外文件权限（默认）'
-    printf '%s\n' '  2) 访问 Home 目录（读写）'
-    printf '%s\n' '  3) 访问所有文件（只读）'
-    printf '%s\n' '  4) Host 权限（所有文件读写，风险最高）'
+    permission_option none 1
+    permission_option home 2
+    permission_option all 3
+    permission_option host 4
     if [ "$DESKTOP_ACTION" = "permissions" ]; then
-      printf '%s\n' '  5) 保留当前权限'
+      printf '%s\n' '  5) 保留当前原始配置（不建议用于未知配置）'
     fi
-    printf '%s' '选择 [1]: '
+    case "$CURRENT_PERMISSION_MODE" in
+      none) default_choice=1 ;;
+      home) default_choice=2 ;;
+      all) default_choice=3 ;;
+      host) default_choice=4 ;;
+      *) default_choice=1 ;;
+    esac
+    printf '选择 [%s]: ' "$default_choice"
     IFS= read -r reply || reply=""
+    [ -n "$reply" ] || reply="$default_choice"
     case "$reply" in
       1|"") PERMISSION_MODE="none" ;;
       2) PERMISSION_MODE="home" ;;
@@ -291,6 +335,7 @@ if [ "$DESKTOP_ACTION" = "permissions" ] && [ "$INSTALL_DESKTOP" = "0" ]; then
   exit 2
 fi
 
+detect_current_permission_mode
 choose_install_action
 choose_permission_mode
 
