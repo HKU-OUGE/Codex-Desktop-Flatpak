@@ -11,10 +11,12 @@ Run the upgrade entry point from the repository root. It downloads the pinned pu
 Enter the repository root—the directory that contains `install.sh`—after cloning or extracting the repository, then run:
 
 ```bash
-chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
-  install-codex-desktop-integration.sh
+chmod +x install.sh
+find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o -name '*.cjs' \) -exec chmod +x {} +
 ./upgrade-codex-desktop-flatpak.sh
 ```
+
+If extracted files are not executable, run the bootstrap command above first. Once started, the installer also repairs execute permissions for the repository's main scripts, manager, tests, and helper scripts, so later runs do not need the manual step.
 
 When run inside the Codex Desktop Flatpak, the script automatically switches to the host through `flatpak-spawn --host`.
 
