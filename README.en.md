@@ -35,6 +35,15 @@ chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
 - disable and remove legacy automatic-upgrade timers;
 - ask for the desired file-access level on the first installation.
 
+The scripts detect the system language and show Chinese or English explanations. You can override the choice explicitly:
+
+```bash
+CODEX_LANG=zh ./install.sh
+CODEX_LANG=en ./install.sh
+```
+
+When a China timezone such as `Asia/Shanghai`, `Asia/Macao`, or `Asia/Urumqi` is detected, missing Flatpak SDKs prefer the USTC Flathub mirror. Codex Desktop, CLI, and Electron inputs remain on official URLs and keep checksum verification. See the [USTC Flathub help](https://mirrors.ustc.edu.cn/help/flathub.html) for the mirror configuration. To disable automatic mirror selection, use `CODEX_MIRROR_MODE=never ./install.sh`; you can also set `CODEX_FLATHUB_REMOTE_URL` to your own Flathub mirror.
+
 The installer can be executed from Bash, Zsh, Dash, and other POSIX-compatible shells. Do not run it with `source install.sh`.
 
 Launch the application with:
