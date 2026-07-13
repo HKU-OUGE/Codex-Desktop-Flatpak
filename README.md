@@ -35,6 +35,15 @@ chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
 - 停用旧版本遗留的自动升级 timer；
 - 首次安装时询问文件访问权限。
 
+脚本会根据系统语言自动显示中文或英文说明，也可以手动指定：
+
+```bash
+CODEX_LANG=zh ./install.sh
+CODEX_LANG=en ./install.sh
+```
+
+如果检测到 `Asia/Shanghai`、`Asia/Macao`、`Asia/Urumqi` 等中国时区，缺少的 Flatpak SDK 会优先通过 USTC Flathub 镜像获取；Codex Desktop、CLI 和 Electron 仍使用官方地址，并继续校验下载摘要。USTC 的 Flathub 配置说明见[官方帮助](https://mirrors.ustc.edu.cn/help/flathub.html)。如需关闭镜像自动选择，可使用 `CODEX_MIRROR_MODE=never ./install.sh`；也可以通过 `CODEX_FLATHUB_REMOTE_URL` 指定自己的 Flathub 镜像。
+
 脚本可以直接从 Bash、Zsh、Dash 等终端执行，不要使用 `source install.sh`。
 
 安装完成后启动：
