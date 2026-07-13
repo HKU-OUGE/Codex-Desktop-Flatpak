@@ -1,0 +1,21 @@
+# Local build state and Flatpak caches
+.flatpak-builder/
+.build.*/
+build-dir/
+flatpak-sources/
+.probe-dmg/
+.inspect-dmg-*/
+
+# Download cache and generated upgrade logs
+downloads/
+upgrade-logs/
+
+# Python and editor artifacts
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# Extracted/generated files that are not required by the Flatpak manifest
+main-*.js
+*.bak
