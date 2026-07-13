@@ -115,6 +115,8 @@ flatpak --user install flathub org.freedesktop.Sdk//24.08
 flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 ```
 
+`install.sh` 会根据系统语言自动显示中文或英文说明，也支持手动指定 `CODEX_LANG=zh` 或 `CODEX_LANG=en`。检测到 `Asia/Shanghai`、`Asia/Macao`、`Asia/Urumqi` 等中国时区时，缺少的 Flatpak SDK 会优先使用 USTC Flathub 镜像；Codex Desktop、CLI 和 Electron 下载仍使用官方地址并校验摘要。可用 `CODEX_MIRROR_MODE=never` 关闭自动镜像，或用 `CODEX_FLATHUB_REMOTE_URL` 指定自定义 Flathub 镜像。参考：[USTC Flathub 帮助](https://mirrors.ustc.edu.cn/help/flathub.html)。
+
 ## 从公开来源构建安装
 
 在仓库根目录运行一键安装脚本。脚本会显示下载进度，获取锁定的 Desktop、Codex CLI 和 Electron，并在本机完成构建：
