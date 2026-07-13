@@ -1,0 +1,59 @@
+app-id: com.openai.CodexLinuxX64
+runtime: org.freedesktop.Sdk
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: codex-launcher
+separate-locales: false
+
+finish-args:
+  - --socket=x11
+  - --socket=wayland
+  - --share=ipc
+  - --device=dri
+  - --share=network
+  - --socket=pulseaudio
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --talk-name=org.freedesktop.Flatpak
+  - --filesystem=xdg-documents
+  - --allow=devel
+
+modules:
+  - name: codex
+    buildsystem: simple
+    build-commands:
+      - install -d /app/lib/codex
+      - cp -r electron/. /app/lib/codex/
+      - install -d /app/lib/codex/resources
+      - install -m644 app.asar /app/lib/codex/resources/app.asar
+      - cp -r app.asar.unpacked /app/lib/codex/resources/app.asar.unpacked
+      - install -m755 codex /app/lib/codex/resources/codex
+      - install -m755 codex-code-mode-host /app/lib/codex/resources/codex-code-mode-host
+      - install -m644 build-info.json /app/lib/codex/resources/build-info.json
+      - install -Dm755 codex-launcher.sh /app/bin/codex-launcher
+      - install -Dm644 com.openai.CodexLinuxX64.desktop /app/share/applications/com.openai.CodexLinuxX64.desktop
+      - install -Dm644 icon-512.png /app/share/icons/hicolor/512x512/apps/com.openai.CodexLinuxX64.png
+      - install -Dm644 icon-256.png /app/share/icons/hicolor/256x256/apps/com.openai.CodexLinuxX64.png
+    sources:
+      - type: dir
+        path: flatpak-sources/electron
+        dest: electron
+      - type: file
+        path: flatpak-sources/app.asar
+      - type: dir
+        path: flatpak-sources/app.asar.unpacked
+        dest: app.asar.unpacked
+      - type: file
+        path: flatpak-sources/codex
+      - type: file
+        path: flatpak-sources/codex-code-mode-host
+      - type: file
+        path: flatpak-sources/build-info.json
+      - type: file
+        path: flatpak-sources/codex-launcher.sh
+      - type: file
+        path: flatpak-sources/com.openai.CodexLinuxX64.desktop
+      - type: file
+        path: flatpak-sources/icon-512.png
+      - type: file
+        path: flatpak-sources/icon-256.png
