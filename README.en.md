@@ -18,13 +18,15 @@ sudo apt install git flatpak flatpak-builder p7zip-full curl file nodejs npm \
   python3 python3-pil unzip tar
 ```
 
-Clone or extract the repository anywhere. Then enter the repository root—the directory that contains `install.sh`—and run:
+Clone or extract the repository anywhere, then enter the repository root—the directory that contains `install.sh`. If the files do not have execute permission, run this bootstrap step first; it does not depend on script permissions:
 
 ```bash
-chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
-  install-codex-desktop-integration.sh
+chmod +x install.sh
+find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o -name '*.cjs' \) -exec chmod +x {} +
 ./install.sh
 ```
+
+Once started, the installer also repairs execute permissions for the repository's main scripts, manager, tests, and helper scripts. You do not need to repeat the manual permission step on later runs.
 
 `install.sh` will:
 
