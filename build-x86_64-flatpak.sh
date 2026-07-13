@@ -187,8 +187,14 @@ download() {
     return
   fi
   mkdir -p "$(dirname "$out")"
+  tmp="$(mktemp "$out.part.XXXXXX")"
   info "Downloading $url"
-  curl_download -o "$out" "$url"
+  if curl_download -o "$tmp" "$url" && [ -s "$tmp" ]; then
+    mv -f "$tmp" "$out"
+  else
+    rm -f "$tmp"
+    die "Download failed or returned an empty file: $url"
+  fi
 }
 
 curl_download() {
@@ -205,7 +211,25 @@ verify_sha256() {
   [ -n "$expected" ] || return 0
   local actual
   actual="$(sha256sum "$file" | awk '{print $1}')"
-  [ "$actual" = "$expected" ] || die "SHA256 mismatch for $file: expected $expected, got $actual"
+  if [ "$actual" != "$expected" ]; then
+    warn "SHA256 mismatch for $file: expected $expected, got $actual"
+    return 1
+  fi
+}
+
+download_verified() {
+  local url="$1"
+  local out="$2"
+  local expected="$3"
+  download "$url" "$out"
+  if verify_sha256 "$out" "$expected"; then
+    return 0
+  fi
+  warn "Removing the invalid cached file and downloading it again: $out"
+  rm -f "$out"
+  download "$url" "$out"
+  verify_sha256 "$out" "$expected" ||
+    die "Download checksum verification failed after retry: $out"
 }
 
 verify_linux_elf_file() {
@@ -231,9 +255,21 @@ verify_linux_elf_executable() {
 }
 
 ensure_release_json() {
-  if [ -s "$CODEX_RELEASE_JSON" ]; then
+  if [ -s "$CODEX_RELEASE_JSON" ] && python3 - "$CODEX_RELEASE_JSON" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as source:
+    payload = json.load(source)
+if not isinstance(payload, dict) or not payload.get("tag_name"):
+    raise SystemExit(1)
+PY
+  then
     info "Using locked Codex release JSON: $CODEX_RELEASE_JSON"
     return
+  elif [ -e "$CODEX_RELEASE_JSON" ]; then
+    warn "Ignoring an incomplete or invalid Codex release JSON: $CODEX_RELEASE_JSON"
+    rm -f "$CODEX_RELEASE_JSON"
   fi
   mkdir -p "$(dirname "$CODEX_RELEASE_JSON")"
   local tmp release_url
@@ -632,22 +668,26 @@ main() {
 
   info "Downloading Codex Desktop $CODEX_APP_VERSION"
   CODEX_REFRESH_DOWNLOADS=0 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"
+  if ! verify_sha256 "$CODEX_APP_DMG" "$CODEX_APP_DMG_SHA256"; then
+    warn "Removing the invalid cached Codex app DMG and downloading it again"
+    rm -f "$CODEX_APP_DMG"
+    CODEX_REFRESH_DOWNLOADS=0 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"
+    verify_sha256 "$CODEX_APP_DMG" "$CODEX_APP_DMG_SHA256" ||
+      die "Codex app DMG checksum verification failed after retry"
+  fi
   local dmg_sha
   dmg_sha="$(sha256sum "$CODEX_APP_DMG" | awk '{print $1}')"
-  verify_sha256 "$CODEX_APP_DMG" "$CODEX_APP_DMG_SHA256"
   ok "Codex app DMG SHA256: $dmg_sha"
 
   resolve_codex_release_assets
   ok "Codex release: $CODEX_RELEASE_TAG"
   local codex_cli_download="$DOWNLOADS/${CODEX_RELEASE_TAG}-${CODEX_CLI_ASSET}"
-  download "$CODEX_CLI_URL" "$codex_cli_download"
-  verify_sha256 "$codex_cli_download" "$CODEX_CLI_SHA256"
+  download_verified "$CODEX_CLI_URL" "$codex_cli_download" "$CODEX_CLI_SHA256"
   local cli_sha
   cli_sha="$(sha256sum "$codex_cli_download" | awk '{print $1}')"
   ok "Codex CLI asset SHA256: $cli_sha"
   local code_mode_host_download="$DOWNLOADS/${CODEX_RELEASE_TAG}-${CODEX_CODE_MODE_HOST_ASSET}"
-  download "$CODEX_CODE_MODE_HOST_URL" "$code_mode_host_download"
-  verify_sha256 "$code_mode_host_download" "$CODEX_CODE_MODE_HOST_SHA256"
+  download_verified "$CODEX_CODE_MODE_HOST_URL" "$code_mode_host_download" "$CODEX_CODE_MODE_HOST_SHA256"
   local helper_sha
   helper_sha="$(sha256sum "$code_mode_host_download" | awk '{print $1}')"
   ok "Codex code mode host asset SHA256: $helper_sha"
@@ -713,14 +753,27 @@ PY
 
   local electron_zip="$DOWNLOADS/electron-v${electron_version}-linux-x64.zip"
   local electron_shasums="$DOWNLOADS/electron-v${electron_version}-SHASUMS256.txt"
-  download "https://github.com/electron/electron/releases/download/v${electron_version}/electron-v${electron_version}-linux-x64.zip" "$electron_zip"
-  download "https://github.com/electron/electron/releases/download/v${electron_version}/SHASUMS256.txt" "$electron_shasums"
-  (
+  electron_url="https://github.com/electron/electron/releases/download/v${electron_version}/electron-v${electron_version}-linux-x64.zip"
+  electron_shasums_url="https://github.com/electron/electron/releases/download/v${electron_version}/SHASUMS256.txt"
+  download "$electron_url" "$electron_zip"
+  download "$electron_shasums_url" "$electron_shasums"
+  if ! (
     cd "$DOWNLOADS"
     grep "[ *]electron-v${electron_version}-linux-x64.zip$" "electron-v${electron_version}-SHASUMS256.txt" |
       sed 's/ \*/  /' |
       sha256sum -c -
-  )
+  ); then
+    warn "Electron cache verification failed; removing both cached files and downloading them again"
+    rm -f "$electron_zip" "$electron_shasums"
+    download "$electron_url" "$electron_zip"
+    download "$electron_shasums_url" "$electron_shasums"
+    (
+      cd "$DOWNLOADS"
+      grep "[ *]electron-v${electron_version}-linux-x64.zip$" "electron-v${electron_version}-SHASUMS256.txt" |
+        sed 's/ \*/  /' |
+        sha256sum -c -
+    ) || die "Electron checksum verification failed after retry"
+  fi
   ok "Electron checksum verified"
 
   info "Preparing Flatpak sources"
@@ -798,6 +851,29 @@ PY
   ok "Flatpak installed"
   printf '\nRun with:\n  flatpak run --user %s\n\n' "$APP_ID"
 }
+
+if [ "${CODEX_TEST_DOWNLOAD:-}" = "1" ]; then
+  require curl sha256sum
+  test_dir="$(mktemp -d)"
+  test_source="$ROOT/packaging/com.openai.CodexLinuxX64.desktop"
+  test_expected="$(sha256sum "$test_source" | awk '{print $1}')"
+  CODEX_NONINTERACTIVE=1 CODEX_REFRESH_DOWNLOADS=0 \
+    download_verified "file://$test_source" "$test_dir/asset" "$test_expected"
+  printf 'partial-cache' >"$test_dir/asset"
+  CODEX_NONINTERACTIVE=1 CODEX_REFRESH_DOWNLOADS=0 \
+    download_verified "file://$test_source" "$test_dir/asset" "$test_expected"
+  cmp -s "$test_source" "$test_dir/asset" || die "Corrupt-cache recovery test failed"
+  if ( CODEX_FORCE_DOWNLOAD=1 CODEX_NONINTERACTIVE=1 download \
+    "file://$test_dir/missing" "$test_dir/failed" ); then
+    die "Failed download test unexpectedly succeeded"
+  fi
+  [ ! -e "$test_dir/failed" ] || die "Failed download left a final output file"
+  ! find "$test_dir" -maxdepth 1 -name 'asset.part.*' -print -quit | grep -q . ||
+    die "Successful download left a temporary file"
+  rm -rf "$test_dir"
+  printf 'atomic download and corrupt-cache recovery passed\n'
+  exit 0
+fi
 
 if [ "${CODEX_TEST_RESOLVE_CLI:-}" = "1" ]; then
   resolve_codex_release_assets

@@ -44,6 +44,10 @@ grep -qx 'CODEX_CLI_SHA256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 grep -qx 'CODEX_CODE_MODE_HOST_URL=https://example.invalid/codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz' <<<"$output" || fail "code mode host URL was not resolved from same latest release"
 grep -qx 'CODEX_CODE_MODE_HOST_SHA256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' <<<"$output" || fail "code mode host digest was not resolved from latest release"
 
+download_output="$(CODEX_TEST_DOWNLOAD=1 bash "$SCRIPT")"
+grep -qx 'atomic download and corrupt-cache recovery passed' <<<"$download_output" ||
+  fail "download atomicity and corrupt-cache recovery test failed"
+
 cat >"$TMP_DIR/prerelease.json" <<'JSON'
 {
   "tag_name": "rust-v9.9.10-beta.1",
