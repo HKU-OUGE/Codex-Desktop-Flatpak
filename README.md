@@ -58,6 +58,8 @@ flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 
 再次运行 `./install.sh` 时，如果已经安装 Codex，脚本会识别现有安装并提供两个选择：重新构建安装 Desktop，或跳过安装、只更新文件权限。也可以直接使用：
 
+脚本会读取当前 Flatpak 的 `filesystems` 配置，并在菜单中用“← 当前”标记识别出的权限类型；直接按回车会使用这个类型。无法映射的组合权限会提示警告，并按无额外文件权限处理。
+
 ```bash
 ./install.sh --permissions-only --permission=home
 ./install.sh --reinstall --permission=none
