@@ -11,6 +11,8 @@
 进入能看到 `install.sh` 的仓库根目录（也就是刚刚克隆或解压出的目录），再执行：
 
 ```bash
+chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
+  install-codex-desktop-integration.sh
 ./upgrade-codex-desktop-flatpak.sh
 ```
 
