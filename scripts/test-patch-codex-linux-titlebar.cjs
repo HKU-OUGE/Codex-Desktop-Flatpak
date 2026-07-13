@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 const assert = require("node:assert/strict");
 const {
   patchAsarBuffer,
