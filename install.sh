@@ -149,6 +149,23 @@ configure_flathub_remote() {
   fi
 }
 
+ensure_repository_scripts_executable() {
+  script_path=""
+  for script_path in \
+    "$ROOT"/*.sh \
+    "$ROOT"/*.bash \
+    "$ROOT"/host-launcher/*.py \
+    "$ROOT"/manager/*.py \
+    "$ROOT"/packaging/*.sh \
+    "$ROOT"/scripts/*.cjs \
+    "$ROOT"/tests/*.sh \
+    "$ROOT"/tests/*.py; do
+    [ -f "$script_path" ] || continue
+    chmod +x "$script_path"
+  done
+  info "Ensured executable permissions for repository scripts"
+}
+
 permission_label() {
   case "$1" in
     none)
@@ -503,6 +520,7 @@ if [ "$DESKTOP_ACTION" = "permissions" ] && [ "$INSTALL_DESKTOP" = "0" ]; then
 fi
 
 detect_current_permission_mode
+ensure_repository_scripts_executable
 choose_install_action
 choose_permission_mode
 
