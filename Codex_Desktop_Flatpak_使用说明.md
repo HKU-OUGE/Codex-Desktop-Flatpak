@@ -1,5 +1,7 @@
 # Codex Desktop Flatpak 使用说明
 
+[中文](Codex_Desktop_Flatpak_使用说明.md) | [English](Codex_Desktop_Flatpak_User_Guide.md)
+
 本文档适用于本包中的 Linux x86_64 Flatpak 形式 Codex Desktop。本包是本机整理出的可重建/可审计版本，应用 ID 为 `com.openai.CodexLinuxX64`。
 
 ## 推荐一键升级
