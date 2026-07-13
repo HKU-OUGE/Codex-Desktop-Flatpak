@@ -21,6 +21,8 @@ sudo apt install git flatpak flatpak-builder p7zip-full curl file nodejs npm \
 Clone or extract the repository anywhere. Then enter the repository root—the directory that contains `install.sh`—and run:
 
 ```bash
+chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
+  install-codex-desktop-integration.sh
 ./install.sh
 ```
 
