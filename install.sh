@@ -515,8 +515,8 @@ install_current_desktop() {
   [ -n "$cli_tag" ] || cli_tag="未知 CLI release"
   info "Installed current Codex Desktop: app=$app_version, cli=$cli_tag"
 
-  if [ -x "$ROOT/install-codex-desktop-integration.sh" ]; then
-    CODEX_INTEGRATION_SKIP_RESTART=1 bash "$ROOT/install-codex-desktop-integration.sh"
+  if [ -f "$ROOT/install-codex-desktop-integration.sh" ]; then
+    CODEX_INTEGRATION_SKIP_RESTART=1 sh "$ROOT/install-codex-desktop-integration.sh"
   fi
 
   installed_commit=$(flatpak info --user --show-commit com.openai.CodexLinuxX64 2>/dev/null || true)

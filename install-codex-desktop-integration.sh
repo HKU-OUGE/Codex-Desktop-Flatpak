@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 APP_ID="com.openai.CodexLinuxX64"
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CODEX_LANG="${CODEX_LANG:-auto}"
 
 info() { printf '[INFO] %s\n' "$*"; }
@@ -14,7 +14,7 @@ detect_language() {
     zh|zh_*) CODEX_LANG="zh" ;;
     en|en_*) CODEX_LANG="en" ;;
     auto|"")
-      local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+      locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
       case "$locale_name" in
         zh*|*_CN*|*_TW*|*_HK*|*_MO*) CODEX_LANG="zh" ;;
         *) CODEX_LANG="en" ;;
@@ -61,11 +61,11 @@ find_node() {
 }
 
 install_desktop_launcher() {
-  local desktop_dir="$HOME/.local/share/applications"
-  local icon_dir="$HOME/.local/share/icons/hicolor"
-  local desktop_file="$desktop_dir/$APP_ID.desktop"
-  local icon_256="$ROOT/flatpak-sources/icon-256.png"
-  local icon_512="$ROOT/flatpak-sources/icon-512.png"
+  desktop_dir="$HOME/.local/share/applications"
+  icon_dir="$HOME/.local/share/icons/hicolor"
+  desktop_file="$desktop_dir/$APP_ID.desktop"
+  icon_256="$ROOT/flatpak-sources/icon-256.png"
+  icon_512="$ROOT/flatpak-sources/icon-512.png"
 
   mkdir -p "$desktop_dir" "$icon_dir/256x256/apps" "$icon_dir/512x512/apps"
 
@@ -108,9 +108,9 @@ EOF
 }
 
 disable_legacy_focus_helper() {
-  local legacy_unit="codex-x11-focus-helper.service"
-  local legacy_unit_file="$HOME/.config/systemd/user/$legacy_unit"
-  local detected=0
+  legacy_unit="codex-x11-focus-helper.service"
+  legacy_unit_file="$HOME/.config/systemd/user/$legacy_unit"
+  detected=0
 
   if ! command -v systemctl >/dev/null 2>&1; then
     return
@@ -137,12 +137,12 @@ disable_legacy_focus_helper() {
 }
 
 install_window_patch_automation() {
-  local node_bin="$1"
+  node_bin=$1
 
   mkdir -p "$HOME/.local/bin" "$HOME/.config/systemd/user"
   cat >"$HOME/.local/bin/codex-desktop-window-patch" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 APP_ID="$APP_ID"
 PATCH_ROOT="$ROOT"
@@ -219,7 +219,6 @@ main() {
   print_notice
   require_cmd flatpak
 
-  local node_bin
   node_bin="$(find_node)"
 
   flatpak info --user "$APP_ID" >/dev/null 2>&1 ||

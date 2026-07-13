@@ -13,7 +13,13 @@ fail() {
 }
 
 [[ -f "$INSTALLER" ]] || fail "missing install-codex-desktop-integration.sh"
+grep -Fxq '#!/bin/sh' "$INSTALLER" ||
+  fail "desktop integration installer must use the portable POSIX shell"
+sh -n "$INSTALLER"
 bash -n "$INSTALLER"
+if command -v zsh >/dev/null 2>&1; then
+  zsh -n "$INSTALLER"
+fi
 [[ -f "$UPGRADER" ]] || fail "missing upgrade-codex-desktop-flatpak.sh"
 bash -n "$UPGRADER"
 
@@ -27,8 +33,10 @@ grep -Fq 'StartupWMClass=codex' "$INSTALLER" ||
   fail "installer must set the observed StartupWMClass"
 grep -Fq 'icon-512.png' "$INSTALLER" ||
   fail "installer must install the app icon"
-grep -Fq 'local legacy_unit="codex-x11-focus-helper.service"' "$INSTALLER" ||
+grep -Fq 'legacy_unit="codex-x11-focus-helper.service"' "$INSTALLER" ||
   fail "installer must detect the legacy X11 focus helper service"
+! grep -Eq 'BASH_SOURCE|set -[^[:space:]]*o[[:space:]]+pipefail|^[[:space:]]*local[[:space:]]' "$INSTALLER" ||
+  fail "desktop integration installer must not contain Bash-only syntax"
 grep -Fq 'systemctl --user disable --now "$legacy_unit"' "$INSTALLER" ||
   fail "installer must disable the legacy X11 focus helper service"
 grep -Fq 'systemctl --user is-active --quiet "$legacy_unit"' "$INSTALLER" ||
@@ -50,6 +58,8 @@ grep -Fq 'build-x86_64-flatpak.sh' "$UPGRADER" ||
   fail "upgrader must call the build script"
 grep -Fq 'CODEX_INTEGRATION_SKIP_RESTART=1' "$UPGRADER" ||
   fail "upgrader must apply integration before restart"
+grep -Fq 'CODEX_INTEGRATION_SKIP_RESTART=1 sh "$ROOT/install-codex-desktop-integration.sh"' "$UPGRADER" ||
+  fail "upgrader must run desktop integration through the portable shell"
 grep -Fq 'verify_installed_payload' "$UPGRADER" ||
   fail "upgrader must verify installed CLI/helper payload"
 grep -Fq 'codex-code-mode-host' "$UPGRADER" ||

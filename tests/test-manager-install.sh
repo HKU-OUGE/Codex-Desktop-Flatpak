@@ -15,6 +15,7 @@ grep -Fq 'Do not run this installer with sudo or as root' "$ROOT/install.sh"
 grep -Fq 'sudo chown -R %s:%s' "$ROOT/install.sh"
 grep -Fq 'check_workspace_permissions' "$ROOT/install.sh"
 grep -Fq 'bash "$ROOT/build-x86_64-flatpak.sh"' "$ROOT/install.sh"
+grep -Fq 'CODEX_INTEGRATION_SKIP_RESTART=1 sh "$ROOT/install-codex-desktop-integration.sh"' "$ROOT/install.sh"
 
 TEMP_HOME=$(mktemp -d)
 trap 'rm -rf "$TEMP_HOME"' EXIT

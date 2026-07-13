@@ -328,7 +328,7 @@ main() {
   ok "Installed commit: $new_commit"
 
   info "Applying desktop integration without stopping the current instance"
-  CODEX_INTEGRATION_SKIP_RESTART=1 "$ROOT/install-codex-desktop-integration.sh" 2>&1 |
+  CODEX_INTEGRATION_SKIP_RESTART=1 sh "$ROOT/install-codex-desktop-integration.sh" 2>&1 |
     tee "$LOG_DIR/integration.log"
 
   verify_installed_payload
