@@ -73,6 +73,8 @@ The manager supports status checks, stable-version manual upgrades, rollback, us
 
 On the first installation, `install.sh` asks for a file-access level: no extra access, Home read/write, all files read-only, or full Host read/write. When an existing installation is detected, rerunning the script lets you choose between rebuilding Desktop and updating permissions only. Explicit examples:
 
+The script reads the current Flatpak `filesystems` configuration and marks the detected type with “← current”. Press Enter to use that type. If the configuration contains an unrecognized combination, the script warns and falls back to no extra filesystem access; choose “keep original configuration” only when you intentionally want to retain it.
+
 ```bash
 ./install.sh --permissions-only --permission=home
 ./install.sh --reinstall --permission=none
