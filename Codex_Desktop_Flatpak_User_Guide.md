@@ -115,6 +115,8 @@ If Flathub is not configured:
 flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 ```
 
+`install.sh` detects the system language and automatically shows Chinese or English explanations. Set `CODEX_LANG=zh` or `CODEX_LANG=en` to override it. When a China timezone such as `Asia/Shanghai`, `Asia/Macao`, or `Asia/Urumqi` is detected, missing Flatpak SDKs prefer the USTC Flathub mirror. Codex Desktop, CLI, and Electron downloads remain on official URLs with checksum verification. Use `CODEX_MIRROR_MODE=never` to disable automatic mirror selection, or set `CODEX_FLATHUB_REMOTE_URL` to a custom Flathub mirror. Reference: [USTC Flathub help](https://mirrors.ustc.edu.cn/help/flathub.html).
+
 ## Build and install from public sources
 
 Run the installer from the repository root. It shows download progress, fetches the pinned Desktop, Codex CLI, and Electron inputs, and builds locally:
