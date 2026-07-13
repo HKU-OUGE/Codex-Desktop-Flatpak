@@ -3,16 +3,46 @@ set -euo pipefail
 
 APP_ID="com.openai.CodexLinuxX64"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-cat <<'NOTICE'
-=== Codex Desktop 桌面集成程序 ===
-说明：本程序只安装桌面入口、图标和窗口修复，并检测停用旧的焦点辅助服务。
-免责声明：本项目不是 OpenAI 官方 Linux 安装包；桌面集成和窗口修复的影响由使用者自行确认并承担。
-NOTICE
+CODEX_LANG="${CODEX_LANG:-auto}"
 
 info() { printf '[INFO] %s\n' "$*"; }
 warn() { printf '[WARN] %s\n' "$*" >&2; }
 die() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
+
+detect_language() {
+  case "$CODEX_LANG" in
+    zh|zh_*) CODEX_LANG="zh" ;;
+    en|en_*) CODEX_LANG="en" ;;
+    auto|"")
+      local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+      case "$locale_name" in
+        zh*|*_CN*|*_TW*|*_HK*|*_MO*) CODEX_LANG="zh" ;;
+        *) CODEX_LANG="en" ;;
+      esac
+      ;;
+    *)
+      warn "Unsupported CODEX_LANG=$CODEX_LANG; falling back to automatic detection."
+      CODEX_LANG="auto"
+      detect_language
+      ;;
+  esac
+}
+
+print_notice() {
+  if [ "$CODEX_LANG" = "zh" ]; then
+    cat <<'NOTICE'
+=== Codex Desktop 桌面集成程序 ===
+说明：根据系统语言显示提示；本程序只安装桌面入口、图标和窗口修复，并检测停用旧的焦点辅助服务。
+免责声明：本项目不是 OpenAI 官方 Linux 安装包；桌面集成和窗口修复的影响由使用者自行确认并承担。
+NOTICE
+  else
+    cat <<'NOTICE'
+=== Codex Desktop desktop integration ===
+Notice: Messages follow the system language. This script installs the desktop entry, icons, and window patch, and disables the legacy focus helper when found.
+Disclaimer: This is not an official OpenAI Linux package. Review and accept the effects of desktop integration and window management yourself.
+NOTICE
+  fi
+}
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "Missing required command: $1"
@@ -185,6 +215,8 @@ EOF
 }
 
 main() {
+  detect_language
+  print_notice
   require_cmd flatpak
 
   local node_bin
