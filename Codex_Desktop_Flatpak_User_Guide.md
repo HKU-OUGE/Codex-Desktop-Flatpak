@@ -8,9 +8,9 @@ This guide covers the Linux x86_64 Flatpak build of Codex Desktop in this reposi
 
 Run the upgrade entry point from the repository root. It downloads the pinned public sources, builds and installs the Flatpak, applies desktop integration, performs basic checks, and uses rollback protection when restarting the application:
 
+Enter the repository root—the directory that contains `install.sh`—after cloning or extracting the repository, then run:
+
 ```bash
-export CODEX_FLATPAK_DIR="/path/to/codex-linux-x86_64-flatpak-redacted"
-cd "$CODEX_FLATPAK_DIR"
 ./upgrade-codex-desktop-flatpak.sh
 ```
 
@@ -71,6 +71,13 @@ The manager supports status checks, stable-version manual upgrades, rollback, us
 
 `codex-flatpak-manager panel` is a linear, two-level text workflow. It initially shows only top-level categories; press `Enter` to enter a category and see its child actions. Use `↑/↓` or `j/k` to move, `←`/`Backspace`/`h` to go back, `→`/`l` to enter a child page, `Enter` to run an action, `r` to refresh, `u` for an upgrade without restart, `U` for an upgrade that may restart the app, and `q` to quit. Permission changes, profile actions, and commit rollback prompt for input in their child pages. Use `codex-flatpak-manager panel --plain` for a one-time tree snapshot when no interactive terminal is available.
 
+On the first installation, `install.sh` asks for a file-access level: no extra access, Home read/write, all files read-only, or full Host read/write. When an existing installation is detected, rerunning the script lets you choose between rebuilding Desktop and updating permissions only. Explicit examples:
+
+```bash
+./install.sh --permissions-only --permission=home
+./install.sh --reinstall --permission=none
+```
+
 ## Repository contents
 
 - `com.openai.CodexLinuxX64.yml`: Flatpak manifest;
@@ -110,6 +117,12 @@ Run the installer from the repository root. It shows download progress, fetches 
 
 ```bash
 ./install.sh
+```
+
+After installation, launch Codex by clicking the “Codex Linux x86_64” desktop icon in the application menu, or use the terminal command:
+
+```bash
+flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 ```
 
 To build without installing the manager:
