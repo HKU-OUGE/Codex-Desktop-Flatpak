@@ -73,6 +73,8 @@ codex-flatpak-manager serve --open
 
 首次安装时，`install.sh` 会询问文件权限：无额外权限、Home 目录读写、所有文件只读，或 Host 全部文件读写。检测到已有安装后，再次运行脚本会让你选择重新构建 Desktop，或只更新权限而不重新安装。也可以直接执行：
 
+脚本会自动读取当前 Flatpak 的 `filesystems` 配置，并在权限菜单中用“← 当前”标记当前类型，直接按回车即可保留该类型。无法识别的组合权限会警告并回退到无额外文件权限；如确实要保留原始组合，可选择“保留当前原始配置”。
+
 ```bash
 ./install.sh --permissions-only --permission=home
 ./install.sh --reinstall --permission=none
