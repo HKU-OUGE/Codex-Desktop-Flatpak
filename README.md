@@ -21,6 +21,8 @@ sudo apt install git flatpak flatpak-builder p7zip-full curl file nodejs npm \
 把仓库克隆或解压到任意位置，然后进入能看到 `install.sh` 的仓库根目录，再执行：
 
 ```bash
+chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
+  install-codex-desktop-integration.sh
 ./install.sh
 ```
 
