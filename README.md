@@ -18,13 +18,15 @@ sudo apt install git flatpak flatpak-builder p7zip-full curl file nodejs npm \
   python3 python3-pil unzip tar
 ```
 
-把仓库克隆或解压到任意位置，然后进入能看到 `install.sh` 的仓库根目录，再执行：
+把仓库克隆或解压到任意位置，然后进入能看到 `install.sh` 的仓库根目录。若文件没有运行权限，先执行下面的授权步骤；这条命令本身不依赖脚本权限：
 
 ```bash
-chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
-  install-codex-desktop-integration.sh
+chmod +x install.sh
+find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o -name '*.cjs' \) -exec chmod +x {} +
 ./install.sh
 ```
+
+安装脚本启动后还会再次修复仓库内主脚本、管理器、测试脚本和辅助脚本的运行权限；以后重新运行安装脚本时无需重复手动授权。
 
 `install.sh` 会：
 
