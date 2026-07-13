@@ -11,6 +11,8 @@ Run the upgrade entry point from the repository root. It downloads the pinned pu
 Enter the repository root—the directory that contains `install.sh`—after cloning or extracting the repository, then run:
 
 ```bash
+chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
+  install-codex-desktop-integration.sh
 ./upgrade-codex-desktop-flatpak.sh
 ```
 
