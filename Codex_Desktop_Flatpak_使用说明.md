@@ -71,7 +71,7 @@ codex-flatpak-manager serve --open
 
 管理器支持状态查看、稳定版本升级、回滚、用户级 Flatpak 文件权限和实验性的 profile 多开。网页服务默认绑定 `127.0.0.1`，升级操作使用锁和现有日志/回滚链路。profile 多开依赖 Electron 对独立 `XDG_*` 数据目录的支持，当前标记为实验性；Flatpak 权限目前是应用级，不会伪装成每个 profile 独立隔离。
 
-`install.sh` 是 POSIX shell 脚本，可以从 Bash、Zsh、Dash 等终端直接执行；不要使用 `source install.sh`。复制本目录到其他 Ubuntu 机器后，直接运行 `./install.sh` 会从公开地址下载并构建锁定版本，不会重新解析 GitHub latest。
+`install.sh` 是 POSIX shell 脚本，可以从 Bash、Zsh、Dash 等终端直接执行；不要使用 `source install.sh`。复制本目录到其他 Ubuntu 机器后，直接运行 `./install.sh` 会从公开地址获取当前官方 Desktop 和最新稳定 CLI。
 
 `codex-flatpak-manager panel` 会打开线性工作流式的二级文字菜单，默认只显示上层节点；选择上层后按 `Enter` 进入下一级页面，此时只显示当前页面的子功能。使用 `↑/↓` 或 `j/k` 切换，`←`/`Backspace`/`h` 返回上级，`→`/`l` 进入下级，`Enter` 执行子功能，`r` 刷新，`u` 执行不重启升级，`U` 执行允许重启升级，`q` 退出。权限授权/撤销、Profile 创建/启动和 commit 回滚会在子菜单中要求输入。无法使用交互式终端时可用 `codex-flatpak-manager panel --plain` 输出一次性树形快照。
 
@@ -117,7 +117,7 @@ flatpak --user install flathub org.freedesktop.Sdk//24.08
 flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 ```
 
-`install.sh` 会根据系统语言自动显示中文或英文说明，也支持手动指定 `CODEX_LANG=zh` 或 `CODEX_LANG=en`。检测到 `Asia/Shanghai`、`Asia/Macao`、`Asia/Urumqi` 等中国时区时，缺少的 Flatpak SDK 会优先使用 USTC Flathub 镜像；Codex Desktop、CLI 和 Electron 下载仍使用官方地址并校验摘要。可用 `CODEX_MIRROR_MODE=never` 关闭自动镜像，或用 `CODEX_FLATHUB_REMOTE_URL` 指定自定义 Flathub 镜像。参考：[USTC Flathub 帮助](https://mirrors.ustc.edu.cn/help/flathub.html)。
+`install.sh` 会根据系统语言自动显示中文或英文说明，也支持手动指定 `CODEX_LANG=zh` 或 `CODEX_LANG=en`。检测到 `Asia/Shanghai`、`Asia/Macao`、`Asia/Urumqi` 等中国时区时，缺少的 Flatpak SDK 会优先使用 USTC Flathub 镜像；Codex Desktop 使用官方最新地址，CLI 和 Electron 下载仍使用官方地址并校验摘要。可用 `CODEX_MIRROR_MODE=never` 关闭自动镜像，或用 `CODEX_FLATHUB_REMOTE_URL` 指定自定义 Flathub 镜像。参考：[USTC Flathub 帮助](https://mirrors.ustc.edu.cn/help/flathub.html)。
 
 ## 从公开来源构建安装
 
@@ -165,7 +165,7 @@ flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 ./build-x86_64-flatpak.sh
 ```
 
-脚本会显示下载/提取/依赖构建进度，并校验 Codex Desktop、Codex CLI 和 Electron 的 SHA256。构建结果和来源信息会写入本地生成的 `flatpak-sources/build-info.json`。
+脚本会显示下载/提取/依赖构建进度。由于官方 Desktop DMG 地址会随版本更新，Desktop 不使用固定 SHA256；Codex CLI 和 Electron 仍校验摘要。构建结果和来源信息会写入本地生成的 `flatpak-sources/build-info.json`。
 
 当前版本还会从同一次 GitHub latest release JSON 中锁定并下载主 CLI 与 Linux `codex-code-mode-host`，并拒绝 helper 缺失、非 Linux ELF、不可执行或与 CLI release tag 不一致的构建。不要使用 DMG 内的 macOS helper。
 

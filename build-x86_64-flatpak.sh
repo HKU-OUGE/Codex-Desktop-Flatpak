@@ -21,19 +21,19 @@ if [ -s "$HOME/.nvm/nvm.sh" ]; then
   nvm use --silent default >/dev/null 2>&1 || nvm use --silent node >/dev/null 2>&1 || true
 fi
 
-# Official OpenAI Codex desktop app DMG. This is the app bundle, not the
-# open-source CLI-only DMG from openai/codex releases.
+# Official OpenAI Codex desktop app DMG. The URL is intentionally mutable so
+# each build follows the current official Desktop release.
 CODEX_APP_DMG_URL="${CODEX_APP_DMG_URL:-https://persistent.oaistatic.com/codex-app-prod/Codex.dmg}"
-CODEX_APP_VERSION="${CODEX_APP_VERSION:-26.707.31428}"
-CODEX_APP_DMG_SHA256="${CODEX_APP_DMG_SHA256:-6f67af7e2f934093ab8afebcec11374d40c8db8f9100fb6620f24155401d8319}"
+CODEX_APP_VERSION="${CODEX_APP_VERSION:-latest}"
 CODEX_APP_DMG="${CODEX_APP_DMG:-$DOWNLOADS/Codex-app-${CODEX_APP_VERSION}.dmg}"
 
-# Official OpenAI Codex CLI backend. Keep the release tag pinned because the
-# Desktop app and its Linux helpers must follow the same version-specific flow.
+# Official OpenAI Codex CLI backend. Resolve the latest stable release by
+# default because the Desktop app above also follows the current release.
 CODEX_RELEASES_LATEST_API="${CODEX_RELEASES_LATEST_API:-https://api.github.com/repos/openai/codex/releases/latest}"
 CODEX_RELEASES_TAG_API="${CODEX_RELEASES_TAG_API:-https://api.github.com/repos/openai/codex/releases/tags}"
-CODEX_RELEASE_TAG="${CODEX_RELEASE_TAG:-rust-v0.144.1}"
+CODEX_RELEASE_TAG="${CODEX_RELEASE_TAG:-latest}"
 CODEX_RELEASE_JSON="${CODEX_RELEASE_JSON:-$DOWNLOADS/openai-codex-${CODEX_RELEASE_TAG#rust-}-release.json}"
+CODEX_REFRESH_RELEASE_METADATA="${CODEX_REFRESH_RELEASE_METADATA:-1}"
 CODEX_TARGET_TRIPLE="${CODEX_TARGET_TRIPLE:-x86_64-unknown-linux-musl}"
 CODEX_CLI_ASSET="${CODEX_CLI_ASSET:-codex-${CODEX_TARGET_TRIPLE}.tar.gz}"
 CODEX_CLI_SHA256="${CODEX_CLI_SHA256:-}"
@@ -108,27 +108,27 @@ print_notice() {
   if [ "$CODEX_LANG" = "zh" ]; then
     cat <<'NOTICE'
 === Codex Desktop Flatpak 构建程序 ===
-说明：根据系统语言显示提示；本程序会从公开地址下载锁定版本的 Codex Desktop、Codex CLI 和 Electron，并在本机编译 Flatpak 输入。
+说明：根据系统语言显示提示；本程序会从公开地址获取当前官方版本的 Codex Desktop、Codex CLI 和 Electron，并在本机编译 Flatpak 输入。Desktop DMG 不使用固定 SHA256，CLI/Electron 仍会校验摘要。
 免责声明：本项目不是 OpenAI 官方 Linux 安装包；构建结果、许可证合规性和运行风险由使用者自行确认并承担。
 NOTICE
   else
     cat <<'NOTICE'
 === Codex Desktop Flatpak build ===
-Notice: Messages follow the system language. This script downloads pinned Codex Desktop, Codex CLI, and Electron sources, then builds the Flatpak locally.
+Notice: Messages follow the system language. This script downloads the current official Codex Desktop, Codex CLI, and Electron sources, then builds the Flatpak locally. The mutable Desktop DMG is not checked against a fixed SHA256; CLI/Electron checksums remain enabled.
 Disclaimer: This is not an official OpenAI Linux package. Verify the build result, licenses, and runtime risks yourself.
 NOTICE
   fi
   if [ "$CODEX_USE_MIRROR" = "1" ]; then
     if [ "$CODEX_LANG" = "zh" ]; then
-      info "检测到中国时区：Flatpak SDK 将优先使用 USTC Flathub 镜像；Codex Desktop/CLI/Electron 仍使用官方地址并校验摘要。"
+      info "检测到中国时区：Flatpak SDK 将优先使用 USTC Flathub 镜像；Codex Desktop 使用官方最新地址，CLI/Electron 仍校验摘要。"
     else
-      info "China timezone detected: the Flatpak SDK will prefer the USTC Flathub mirror; Codex Desktop/CLI/Electron stay on official URLs with checksum verification."
+      info "China timezone detected: the Flatpak SDK will prefer the USTC Flathub mirror; Codex Desktop uses the current official URL, while CLI/Electron keep checksum verification."
     fi
   else
     if [ "$CODEX_LANG" = "zh" ]; then
-      info "使用官方 Flathub 地址；Codex Desktop/CLI/Electron 始终使用官方地址并校验摘要。"
+      info "使用官方 Flathub 地址；Codex Desktop 使用官方最新地址，CLI/Electron 校验摘要。"
     else
-      info "Using the official Flathub URL; Codex Desktop/CLI/Electron always use official URLs with checksum verification."
+      info "Using the official Flathub URL; Codex Desktop uses the current official URL, while CLI/Electron keep checksum verification."
     fi
   fi
 }
@@ -255,7 +255,9 @@ verify_linux_elf_executable() {
 }
 
 ensure_release_json() {
-  if [ -s "$CODEX_RELEASE_JSON" ] && python3 - "$CODEX_RELEASE_JSON" <<'PY'
+  if [ -s "$CODEX_RELEASE_JSON" ] &&
+    { [ "$CODEX_RELEASE_TAG" != "latest" ] || [ "$CODEX_REFRESH_RELEASE_METADATA" != "1" ]; } &&
+    python3 - "$CODEX_RELEASE_JSON" <<'PY'
 import json
 import sys
 
@@ -666,18 +668,11 @@ main() {
     flatpak --user install -y flathub "${RUNTIME_ID}//${RUNTIME_VERSION}"
   fi
 
-  info "Downloading Codex Desktop $CODEX_APP_VERSION"
-  CODEX_REFRESH_DOWNLOADS=0 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"
-  if ! verify_sha256 "$CODEX_APP_DMG" "$CODEX_APP_DMG_SHA256"; then
-    warn "Removing the invalid cached Codex app DMG and downloading it again"
-    rm -f "$CODEX_APP_DMG"
-    CODEX_REFRESH_DOWNLOADS=0 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"
-    verify_sha256 "$CODEX_APP_DMG" "$CODEX_APP_DMG_SHA256" ||
-      die "Codex app DMG checksum verification failed after retry"
-  fi
+  info "Downloading the current official Codex Desktop"
+  CODEX_REFRESH_DOWNLOADS=1 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"
   local dmg_sha
   dmg_sha="$(sha256sum "$CODEX_APP_DMG" | awk '{print $1}')"
-  ok "Codex app DMG SHA256: $dmg_sha"
+  ok "Codex app DMG downloaded; SHA256 recorded (not pinned): $dmg_sha"
 
   resolve_codex_release_assets
   ok "Codex release: $CODEX_RELEASE_TAG"
@@ -721,8 +716,10 @@ main() {
   local app_main
   app_version="$(node -e "const p=require('$package_json'); console.log(p.version || '')")"
   app_main="$(node -e "const p=require('$package_json'); console.log(p.main || '')")"
-  [ "$app_version" = "$CODEX_APP_VERSION" ] ||
-    die "Desktop app version mismatch: expected $CODEX_APP_VERSION, got ${app_version:-unknown}"
+  if [ "$CODEX_APP_VERSION" != "latest" ]; then
+    [ "$app_version" = "$CODEX_APP_VERSION" ] ||
+      die "Desktop app version mismatch: expected $CODEX_APP_VERSION, got ${app_version:-unknown}"
+  fi
   ok "Desktop app version: ${app_version:-unknown}; main: ${app_main:-unknown}"
   local compat_output
   local upstream_compatibility_json="$WORK_DIR/upstream-compatibility.json"

@@ -30,7 +30,7 @@ Once started, the installer also repairs execute permissions for the repository'
 
 `install.sh` will:
 
-- download and build the pinned version from public sources;
+- download and build the current official version from public sources;
 - install the Flatpak, desktop entry, icon, and window integration;
 - install the optional terminal manager;
 - install the Flathub SDK 24.08 if it is missing;
@@ -44,7 +44,7 @@ CODEX_LANG=zh ./install.sh
 CODEX_LANG=en ./install.sh
 ```
 
-When a China timezone such as `Asia/Shanghai`, `Asia/Macao`, or `Asia/Urumqi` is detected, missing Flatpak SDKs prefer the USTC Flathub mirror. Codex Desktop, CLI, and Electron inputs remain on official URLs and keep checksum verification. See the [USTC Flathub help](https://mirrors.ustc.edu.cn/help/flathub.html) for the mirror configuration. To disable automatic mirror selection, use `CODEX_MIRROR_MODE=never ./install.sh`; you can also set `CODEX_FLATHUB_REMOTE_URL` to your own Flathub mirror.
+When a China timezone such as `Asia/Shanghai`, `Asia/Macao`, or `Asia/Urumqi` is detected, missing Flatpak SDKs prefer the USTC Flathub mirror. Codex Desktop uses the current official URL; CLI and Electron inputs remain on official URLs with checksum verification. See the [USTC Flathub help](https://mirrors.ustc.edu.cn/help/flathub.html) for the mirror configuration. To disable automatic mirror selection, use `CODEX_MIRROR_MODE=never ./install.sh`; you can also set `CODEX_FLATHUB_REMOTE_URL` to your own Flathub mirror.
 
 The installer can be executed from Bash, Zsh, Dash, and other POSIX-compatible shells. Do not run it with `source install.sh`.
 
@@ -58,7 +58,7 @@ You can also launch “Codex Linux x86_64” from the application menu.
 
 After installation, you can also click the “Codex Linux x86_64” desktop icon in the application menu. You do not need to launch it from a terminal every time.
 
-> The pinned versions are Codex Desktop `26.707.31428` and Codex CLI `rust-v0.144.1`. The build script verifies download checksums. `flatpak-sources/` is generated locally during a build and is not committed.
+> Each build fetches the current official Codex Desktop and the latest stable Codex CLI by default. Because the official Desktop DMG URL is mutable, Desktop does not use a fixed SHA256; CLI and Electron downloads remain checksum-verified. The exact versions are recorded in `flatpak-sources/build-info.json`.
 
 ## Choose file permissions during installation
 
@@ -265,7 +265,7 @@ This directory may contain login state, configuration, caches, and logs. Do not 
 
 ## Directory overview
 
-- `install.sh`: download and install the pinned Desktop version and manager;
+- `install.sh`: download and install the current official Desktop version and manager;
 - `upgrade-codex-desktop-flatpak.sh`: manual upgrade entry point;
 - `build-x86_64-flatpak.sh`: rebuild from public sources;
 - `install-codex-desktop-integration.sh`: install the desktop entry and window fix;

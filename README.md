@@ -30,7 +30,7 @@ find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o 
 
 `install.sh` 会：
 
-- 从公开地址下载并构建当前锁定版本，不会自动解析最新版本；
+- 从公开地址下载并构建当前官方版本；
 - 安装 Flatpak Desktop、桌面图标和窗口修复；
 - 安装可选的终端管理命令；
 - 如果缺少 Flatpak SDK 24.08，自动从 Flathub 安装；
@@ -44,7 +44,7 @@ CODEX_LANG=zh ./install.sh
 CODEX_LANG=en ./install.sh
 ```
 
-如果检测到 `Asia/Shanghai`、`Asia/Macao`、`Asia/Urumqi` 等中国时区，缺少的 Flatpak SDK 会优先通过 USTC Flathub 镜像获取；Codex Desktop、CLI 和 Electron 仍使用官方地址，并继续校验下载摘要。USTC 的 Flathub 配置说明见[官方帮助](https://mirrors.ustc.edu.cn/help/flathub.html)。如需关闭镜像自动选择，可使用 `CODEX_MIRROR_MODE=never ./install.sh`；也可以通过 `CODEX_FLATHUB_REMOTE_URL` 指定自己的 Flathub 镜像。
+如果检测到 `Asia/Shanghai`、`Asia/Macao`、`Asia/Urumqi` 等中国时区，缺少的 Flatpak SDK 会优先通过 USTC Flathub 镜像获取；Codex Desktop 使用官方最新地址，CLI 和 Electron 仍使用官方地址并校验下载摘要。USTC 的 Flathub 配置说明见[官方帮助](https://mirrors.ustc.edu.cn/help/flathub.html)。如需关闭镜像自动选择，可使用 `CODEX_MIRROR_MODE=never ./install.sh`；也可以通过 `CODEX_FLATHUB_REMOTE_URL` 指定自己的 Flathub 镜像。
 
 脚本可以直接从 Bash、Zsh、Dash 等终端执行，不要使用 `source install.sh`。
 
@@ -58,7 +58,7 @@ flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 
 安装完成后，也可以直接点击应用菜单中的“Codex Linux x86_64”桌面图标启动，不必每次都在终端执行命令。
 
-> 当前锁定版本为 Codex Desktop `26.707.31428` 和 Codex CLI `rust-v0.144.1`。构建脚本会校验下载摘要；`flatpak-sources/` 只在本机构建过程中生成，不提交到仓库。
+> 每次构建默认获取当前官方 Codex Desktop 和最新稳定 Codex CLI。由于官方 Desktop DMG 地址是可变地址，Desktop 不使用固定 SHA256；CLI 和 Electron 仍校验下载摘要。实际版本会写入 `flatpak-sources/build-info.json`。
 
 ## 安装时选择文件权限
 
@@ -258,7 +258,7 @@ sudo apt install flatpak flatpak-builder p7zip-full curl file \
 - 按 Electron 版本重建 Linux native modules；
 - 构建并安装用户级 Flatpak。
 
-构建结果和来源信息写入本地生成的 `flatpak-sources/build-info.json`。`install.sh` 和 `build-x86_64-flatpak.sh` 都会下载并编译锁定版本；详细的构建检查、回滚和验收命令见 [Codex_Desktop_Flatpak_使用说明.md](Codex_Desktop_Flatpak_使用说明.md)。
+构建结果和来源信息写入本地生成的 `flatpak-sources/build-info.json`。`install.sh` 和 `build-x86_64-flatpak.sh` 默认获取并编译当前官方版本；详细的构建检查、回滚和验收命令见 [Codex_Desktop_Flatpak_使用说明.md](Codex_Desktop_Flatpak_使用说明.md)。
 
 ## 数据位置
 
@@ -272,7 +272,7 @@ $HOME/.var/app/com.openai.CodexLinuxX64/
 
 ## 目录说明
 
-- `install.sh`：下载并安装当前锁定版本的 Desktop 和管理命令；
+- `install.sh`：下载并安装当前官方版本的 Desktop 和管理命令；
 - `upgrade-codex-desktop-flatpak.sh`：手动更新入口；
 - `build-x86_64-flatpak.sh`：从官方来源重新构建；
 - `install-codex-desktop-integration.sh`：安装桌面入口和窗口修复；

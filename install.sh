@@ -106,28 +106,28 @@ configure_source_policy
 if [ "$CODEX_LANG" = "zh" ]; then
   cat <<'NOTICE'
 === Codex Desktop Flatpak 安装程序 ===
-说明：根据系统语言显示提示；本程序会下载公开来源、构建并安装当前锁定版本的 Codex Desktop，并可选安装本地管理面板。
+说明：根据系统语言显示提示；本程序会下载公开来源、构建并安装当前官方版本的 Codex Desktop，并可选安装本地管理面板。
 免责声明：本项目不是 OpenAI 官方 Linux 安装包；请自行确认来源、许可证和运行权限，并承担安装、升级及使用风险。
 NOTICE
 else
   cat <<'NOTICE'
 === Codex Desktop Flatpak installer ===
-Notice: Messages follow the system language. This script downloads public sources, builds the pinned Codex Desktop version, and can install the optional local manager.
+Notice: Messages follow the system language. This script downloads public sources, builds the current official Codex Desktop version, and can install the optional local manager.
 Disclaimer: This is not an official OpenAI Linux package. Verify sources, licenses, and permissions yourself; installation, upgrades, and use are at your own risk.
 NOTICE
 fi
 
 if [ "$CODEX_USE_MIRROR" = "1" ]; then
   if [ "$CODEX_LANG" = "zh" ]; then
-    info "检测到中国时区：Flatpak SDK 将优先使用 USTC Flathub 镜像；Codex 官方资源仍使用官方地址并校验摘要。"
+    info "检测到中国时区：Flatpak SDK 将优先使用 USTC Flathub 镜像；Codex Desktop 使用官方最新地址，CLI/Electron 仍校验摘要。"
   else
-    info "China timezone detected: the Flatpak SDK will prefer the USTC Flathub mirror; Codex assets stay on official URLs with checksum verification."
+    info "China timezone detected: the Flatpak SDK will prefer the USTC Flathub mirror; Codex Desktop uses the current official URL, while CLI/Electron keep checksum verification."
   fi
 else
   if [ "$CODEX_LANG" = "zh" ]; then
-    info "使用官方 Flathub 地址；Codex 官方资源始终使用官方地址并校验摘要。"
+    info "使用官方 Flathub 地址；Codex Desktop 使用官方最新地址，CLI/Electron 校验摘要。"
   else
-    info "Using the official Flathub URL; Codex assets always use official URLs with checksum verification."
+    info "Using the official Flathub URL; Codex Desktop uses the current official URL, while CLI/Electron keep checksum verification."
   fi
 fi
 
@@ -444,14 +444,14 @@ install_current_desktop() {
     }
   done
 
-  info "Downloading and building the pinned Codex Desktop version"
+  info "Downloading and building the current official Codex Desktop version"
   "$ROOT/build-x86_64-flatpak.sh"
 
   app_version=$(build_info_value codexAppVersion)
   cli_tag=$(build_info_value codexCliReleaseTag)
-  [ -n "$app_version" ] || app_version="锁定版本"
+  [ -n "$app_version" ] || app_version="未知版本"
   [ -n "$cli_tag" ] || cli_tag="未知 CLI release"
-  info "Installed pinned Codex Desktop: app=$app_version, cli=$cli_tag"
+  info "Installed current Codex Desktop: app=$app_version, cli=$cli_tag"
 
   if [ -x "$ROOT/install-codex-desktop-integration.sh" ]; then
     CODEX_INTEGRATION_SKIP_RESTART=1 "$ROOT/install-codex-desktop-integration.sh"
@@ -482,7 +482,7 @@ usage() {
   cat <<EOF
 Usage: ./install.sh [--enable] [--disable] [--manager-only] [--reinstall] [--permissions-only]
 
-Download and build the repository's pinned Codex Desktop version, then install the optional manager.
+Download and build the current official Codex Desktop version, then install the optional manager.
 The existing manual build and upgrade scripts are not replaced.
 
   --enable   Enable and start the optional loopback web service.

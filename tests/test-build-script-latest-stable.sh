@@ -33,6 +33,7 @@ JSON
 
 output="$(
   CODEX_TEST_RESOLVE_CLI=1 \
+  CODEX_REFRESH_RELEASE_METADATA=0 \
   CODEX_RELEASE_TAG=latest \
   CODEX_RELEASE_JSON="$TMP_DIR/latest.json" \
   bash "$SCRIPT"
@@ -68,7 +69,7 @@ cat >"$TMP_DIR/prerelease.json" <<'JSON'
 }
 JSON
 
-if CODEX_TEST_RESOLVE_CLI=1 CODEX_RELEASE_TAG=latest CODEX_RELEASE_JSON="$TMP_DIR/prerelease.json" bash "$SCRIPT" >/tmp/codex-prerelease-test.out 2>&1; then
+if CODEX_TEST_RESOLVE_CLI=1 CODEX_REFRESH_RELEASE_METADATA=0 CODEX_RELEASE_TAG=latest CODEX_RELEASE_JSON="$TMP_DIR/prerelease.json" bash "$SCRIPT" >/tmp/codex-prerelease-test.out 2>&1; then
   fail "prerelease fixture was accepted"
 fi
 grep -q 'not a stable release' /tmp/codex-prerelease-test.out || fail "prerelease rejection message was missing"
@@ -88,7 +89,7 @@ cat >"$TMP_DIR/missing-helper.json" <<'JSON'
 }
 JSON
 
-if CODEX_TEST_RESOLVE_CLI=1 CODEX_RELEASE_TAG=latest CODEX_RELEASE_JSON="$TMP_DIR/missing-helper.json" bash "$SCRIPT" >/tmp/codex-missing-helper-test.out 2>&1; then
+if CODEX_TEST_RESOLVE_CLI=1 CODEX_REFRESH_RELEASE_METADATA=0 CODEX_RELEASE_TAG=latest CODEX_RELEASE_JSON="$TMP_DIR/missing-helper.json" bash "$SCRIPT" >/tmp/codex-missing-helper-test.out 2>&1; then
   fail "release without code mode host was accepted"
 fi
 grep -q 'missing asset codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz' /tmp/codex-missing-helper-test.out ||
@@ -110,3 +111,9 @@ grep -Fq 'write_resized_png_icon' "$SCRIPT" ||
   fail "build script must resize app icons to declared Flatpak icon sizes"
 grep -Fq 'codexAppVersion' "$SCRIPT" ||
   fail "build info must record the bundled Codex Desktop version"
+grep -Fq 'CODEX_APP_VERSION="${CODEX_APP_VERSION:-latest}"' "$SCRIPT" ||
+  fail "Desktop build must follow the current official version by default"
+! grep -Fq 'CODEX_APP_DMG_SHA256' "$SCRIPT" ||
+  fail "Desktop DMG must not use a stale fixed SHA256"
+grep -Fq 'CODEX_REFRESH_DOWNLOADS=1 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"' "$SCRIPT" ||
+  fail "Desktop DMG must refresh the mutable official URL"

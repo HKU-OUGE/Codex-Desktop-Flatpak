@@ -71,7 +71,7 @@ Automatic upgrades are disabled. Any legacy `codex-flatpak-manager-auto-upgrade.
 
 The manager supports status checks, stable-version manual upgrades, rollback, user-level Flatpak permissions, and experimental profiles. The web service binds to `127.0.0.1`. Profile isolation depends on Electron's separate `XDG_*` directories, while Flatpak permissions remain application-wide.
 
-`install.sh` is a POSIX `sh` script and can be called from Bash, Zsh, Dash, and other compatible shells. Do not run it with `source install.sh`. On another Ubuntu machine, `./install.sh` downloads and builds the pinned version instead of resolving GitHub `latest`.
+`install.sh` is a POSIX `sh` script and can be called from Bash, Zsh, Dash, and other compatible shells. Do not run it with `source install.sh`. On another Ubuntu machine, `./install.sh` downloads and builds the current official version, including the latest stable CLI release.
 
 `codex-flatpak-manager panel` is a linear, two-level text workflow. It initially shows only top-level categories; press `Enter` to enter a category and see its child actions. Use `↑/↓` or `j/k` to move, `←`/`Backspace`/`h` to go back, `→`/`l` to enter a child page, `Enter` to run an action, `r` to refresh, `u` for an upgrade without restart, `U` for an upgrade that may restart the app, and `q` to quit. Permission changes, profile actions, and commit rollback prompt for input in their child pages. Use `codex-flatpak-manager panel --plain` for a one-time tree snapshot when no interactive terminal is available.
 
@@ -117,7 +117,7 @@ If Flathub is not configured:
 flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 ```
 
-`install.sh` detects the system language and automatically shows Chinese or English explanations. Set `CODEX_LANG=zh` or `CODEX_LANG=en` to override it. When a China timezone such as `Asia/Shanghai`, `Asia/Macao`, or `Asia/Urumqi` is detected, missing Flatpak SDKs prefer the USTC Flathub mirror. Codex Desktop, CLI, and Electron downloads remain on official URLs with checksum verification. Use `CODEX_MIRROR_MODE=never` to disable automatic mirror selection, or set `CODEX_FLATHUB_REMOTE_URL` to a custom Flathub mirror. Reference: [USTC Flathub help](https://mirrors.ustc.edu.cn/help/flathub.html).
+`install.sh` detects the system language and automatically shows Chinese or English explanations. Set `CODEX_LANG=zh` or `CODEX_LANG=en` to override it. When a China timezone such as `Asia/Shanghai`, `Asia/Macao`, or `Asia/Urumqi` is detected, missing Flatpak SDKs prefer the USTC Flathub mirror. Codex Desktop uses the current official URL; CLI and Electron downloads remain on official URLs with checksum verification. Use `CODEX_MIRROR_MODE=never` to disable automatic mirror selection, or set `CODEX_FLATHUB_REMOTE_URL` to a custom Flathub mirror. Reference: [USTC Flathub help](https://mirrors.ustc.edu.cn/help/flathub.html).
 
 ## Build and install from public sources
 
@@ -161,15 +161,15 @@ flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 
 ## Rebuild from official public sources
 
-To download the pinned Codex Desktop, Codex CLI, and Electron inputs again:
+To download the current official Codex Desktop, latest stable Codex CLI, and Electron inputs again:
 
 ```bash
 ./build-x86_64-flatpak.sh
 ```
 
-The script displays download, extraction, and dependency-build progress and verifies SHA256 checksums for Codex Desktop, Codex CLI, and Electron. Build metadata is written to the locally generated `flatpak-sources/build-info.json`.
+The script displays download, extraction, and dependency-build progress. The official Desktop DMG URL is mutable, so Desktop does not use a fixed SHA256; Codex CLI and Electron downloads remain checksum-verified. Build metadata is written to the locally generated `flatpak-sources/build-info.json`.
 
-The current flow resolves the main CLI and Linux `codex-code-mode-host` from the same pinned Codex release metadata and rejects a missing helper, non-Linux ELF, non-executable file, or release-tag mismatch. Do not use the macOS helper from the DMG.
+The current flow resolves the main CLI and Linux `codex-code-mode-host` from the same latest stable Codex release metadata and rejects a missing helper, non-Linux ELF, non-executable file, or release-tag mismatch. Do not use the macOS helper from the DMG.
 
 ## Granting file access
 
