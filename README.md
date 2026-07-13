@@ -1,5 +1,7 @@
 # Codex Desktop for Linux（Flatpak）
 
+[中文](README.md) | [English](README.en.md)
+
 这是一个面向 Ubuntu x86_64 的 Codex Desktop Flatpak 打包项目。
 
 它不是 OpenAI 官方发布的 Linux 安装包，而是将 Codex Desktop、Linux CLI 和相关运行文件整理为 Flatpak，方便在 Ubuntu 上安装、运行和回滚。
