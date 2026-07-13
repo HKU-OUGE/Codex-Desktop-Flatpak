@@ -7,11 +7,102 @@ LOG_DIR="${CODEX_UPGRADE_LOG_DIR:-$ROOT/upgrade-logs/$(date +%Y%m%d-%H%M%S)}"
 RESTART=1
 BUILD=1
 ORIGINAL_ARGS=("$@")
+CODEX_LANG="${CODEX_LANG:-auto}"
+CODEX_MIRROR_MODE="${CODEX_MIRROR_MODE:-auto}"
+CODEX_USE_MIRROR=0
 
 info() { printf '[INFO] %s\n' "$*"; }
 ok() { printf '[OK] %s\n' "$*"; }
 warn() { printf '[WARN] %s\n' "$*" >&2; }
 die() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
+
+detect_language() {
+  case "$CODEX_LANG" in
+    zh|zh_*) CODEX_LANG="zh" ;;
+    en|en_*) CODEX_LANG="en" ;;
+    auto|"")
+      local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+      case "$locale_name" in
+        zh*|*_CN*|*_TW*|*_HK*|*_MO*) CODEX_LANG="zh" ;;
+        *) CODEX_LANG="en" ;;
+      esac
+      ;;
+    *)
+      warn "Unsupported CODEX_LANG=$CODEX_LANG; falling back to automatic detection."
+      CODEX_LANG="auto"
+      detect_language
+      ;;
+  esac
+}
+
+is_china_timezone() {
+  local timezone="${TZ:-}"
+  if [ -z "$timezone" ] && command -v timedatectl >/dev/null 2>&1; then
+    timezone="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
+  fi
+  if [ -z "$timezone" ] && [ -e /etc/localtime ] && command -v readlink >/dev/null 2>&1; then
+    timezone="$(readlink -f /etc/localtime 2>/dev/null | sed 's#^.*/zoneinfo/##')"
+  fi
+  if [ -z "$timezone" ] && [ -r /etc/timezone ]; then
+    timezone="$(sed -n '1p' /etc/timezone)"
+  fi
+  case "$timezone" in
+    Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Kashgar|Asia/Macao|Asia/Urumqi|Asia/Hong_Kong|Hongkong|PRC)
+      return 0 ;;
+  esac
+  return 1
+}
+
+configure_source_policy() {
+  case "$CODEX_MIRROR_MODE" in
+    auto|always|never) ;;
+    *)
+      warn "Unsupported CODEX_MIRROR_MODE=$CODEX_MIRROR_MODE; using auto."
+      CODEX_MIRROR_MODE="auto"
+      ;;
+  esac
+  CODEX_USE_MIRROR=0
+  if [ "$CODEX_MIRROR_MODE" = "always" ] ||
+    { [ "$CODEX_MIRROR_MODE" = "auto" ] && is_china_timezone; }; then
+    CODEX_USE_MIRROR=1
+  fi
+}
+
+print_notice() {
+  if [ "$CODEX_LANG" = "zh" ]; then
+    cat <<'NOTICE'
+=== Codex Desktop Flatpak 手动升级程序 ===
+说明：根据系统语言显示提示；本程序按当前版本流程下载、构建、安装并验收 Codex Desktop。
+免责声明：本项目不是 OpenAI 官方 Linux 安装包；请先确认本版本流程和来源，并自行承担升级、回滚及运行风险。
+NOTICE
+  else
+    cat <<'NOTICE'
+=== Codex Desktop Flatpak manual upgrade ===
+Notice: Messages follow the system language. This script downloads, builds, installs, and verifies Codex Desktop using the current version-specific flow.
+Disclaimer: This is not an official OpenAI Linux package. Confirm the flow and sources before use; upgrades, rollbacks, and runtime use are at your own risk.
+NOTICE
+  fi
+  if [ "$CODEX_USE_MIRROR" = "1" ]; then
+    if [ "$CODEX_LANG" = "zh" ]; then
+      info "检测到中国时区：缺少 SDK 时优先使用 USTC Flathub 镜像；Codex 资源仍使用官方地址并校验摘要。"
+    else
+      info "China timezone detected: missing SDKs will prefer the USTC Flathub mirror; Codex assets stay on official URLs with checksum verification."
+    fi
+  fi
+}
+
+configure_flathub_remote() {
+  local mirror_url="${CODEX_FLATHUB_REMOTE_URL:-https://mirrors.ustc.edu.cn/flathub}"
+  flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+  if [ "$CODEX_USE_MIRROR" = "1" ]; then
+    if flatpak --user remote-modify flathub --url="$mirror_url"; then
+      info "Configured Flathub mirror: $mirror_url"
+    else
+      warn "Could not configure the Flathub mirror; using the official Flathub URL."
+      flatpak --user remote-modify flathub --url="https://dl.flathub.org/repo/"
+    fi
+  fi
+}
 
 usage() {
   cat <<EOF
@@ -48,7 +139,11 @@ if [ -n "${FLATPAK_ID:-}" ] && [ "${CODEX_UPGRADE_ON_HOST:-0}" != "1" ]; then
   command -v flatpak-spawn >/dev/null 2>&1 ||
     die "Running inside Flatpak but flatpak-spawn is unavailable."
   info "Running inside Flatpak; re-executing on the host."
-  exec flatpak-spawn --host env CODEX_UPGRADE_ON_HOST=1 "$ROOT/upgrade-codex-desktop-flatpak.sh" "${ORIGINAL_ARGS[@]}"
+  exec flatpak-spawn --host env CODEX_UPGRADE_ON_HOST=1 \
+    CODEX_LANG="$CODEX_LANG" \
+    CODEX_MIRROR_MODE="$CODEX_MIRROR_MODE" \
+    CODEX_FLATHUB_REMOTE_URL="${CODEX_FLATHUB_REMOTE_URL:-}" \
+    "$ROOT/upgrade-codex-desktop-flatpak.sh" "${ORIGINAL_ARGS[@]}"
 fi
 
 require_cmd() {
@@ -202,16 +297,15 @@ EOF
 }
 
 main() {
-  cat <<'NOTICE'
-=== Codex Desktop Flatpak 手动升级程序 ===
-说明：本程序会按当前版本流程下载、构建、安装并验收 Codex Desktop；默认会在完成后尝试重启应用，并保留回滚保护。
-免责声明：本项目不是 OpenAI 官方 Linux 安装包；请先确认本版本流程和来源，升级、回滚及运行风险由使用者自行承担。
-NOTICE
+  detect_language
+  configure_source_policy
+  print_notice
   mkdir -p "$LOG_DIR"
   require_cmd flatpak flatpak-builder file node npm python3 sha256sum
 
   if ! flatpak info --user org.freedesktop.Sdk//24.08 >/dev/null 2>&1; then
-    die "Missing runtime org.freedesktop.Sdk//24.08. Install it with: flatpak --user install flathub org.freedesktop.Sdk//24.08"
+    configure_flathub_remote
+    flatpak --user install -y flathub org.freedesktop.Sdk//24.08
   fi
 
   local old_commit new_commit
