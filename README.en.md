@@ -58,6 +58,8 @@ On the first run, `install.sh` asks how much of the host filesystem Codex may ac
 
 When `./install.sh` is run again and Codex is already installed, it detects the existing installation and offers two choices: rebuild and reinstall Desktop, or skip the installation and update only file permissions. You can also use explicit commands:
 
+The script reads the current Flatpak `filesystems` configuration and marks the detected permission type with “← current” in the menu. Pressing Enter uses that type. An unrecognized combination is reported and falls back to no extra filesystem access.
+
 ```bash
 ./install.sh --permissions-only --permission=home
 ./install.sh --reinstall --permission=none
