@@ -18,11 +18,9 @@ sudo apt install git flatpak flatpak-builder p7zip-full curl file nodejs npm \
   python3 python3-pil unzip tar
 ```
 
-Set the repository directory and run the installer:
+Clone or extract the repository anywhere. Then enter the repository root—the directory that contains `install.sh`—and run:
 
 ```bash
-export CODEX_FLATPAK_DIR="/path/to/codex-linux-x86_64-flatpak-redacted"
-cd "$CODEX_FLATPAK_DIR"
 ./install.sh
 ```
 
@@ -32,7 +30,8 @@ cd "$CODEX_FLATPAK_DIR"
 - install the Flatpak, desktop entry, icon, and window integration;
 - install the optional terminal manager;
 - install the Flathub SDK 24.08 if it is missing;
-- disable and remove legacy automatic-upgrade timers.
+- disable and remove legacy automatic-upgrade timers;
+- ask for the desired file-access level on the first installation.
 
 The installer can be executed from Bash, Zsh, Dash, and other POSIX-compatible shells. Do not run it with `source install.sh`.
 
@@ -44,7 +43,27 @@ flatpak run --user --env=CODEX_FLATPAK_RENDERER=gpu com.openai.CodexLinuxX64
 
 You can also launch “Codex Linux x86_64” from the application menu.
 
+After installation, you can also click the “Codex Linux x86_64” desktop icon in the application menu. You do not need to launch it from a terminal every time.
+
 > The pinned versions are Codex Desktop `26.707.31428` and Codex CLI `rust-v0.144.1`. The build script verifies download checksums. `flatpak-sources/` is generated locally during a build and is not committed.
+
+## Choose file permissions during installation
+
+On the first run, `install.sh` asks how much of the host filesystem Codex may access:
+
+- no extra filesystem access: keep the application's default Documents entry;
+- Home directory: read/write access to the current user's Home directory;
+- all files: read-only access to the host filesystem;
+- Host permission: read/write access to the host filesystem; highest risk.
+
+When `./install.sh` is run again and Codex is already installed, it detects the existing installation and offers two choices: rebuild and reinstall Desktop, or skip the installation and update only file permissions. You can also use explicit commands:
+
+```bash
+./install.sh --permissions-only --permission=home
+./install.sh --reinstall --permission=none
+```
+
+Permission modes are `none`, `home`, `all`, `host`, and `keep`. `--manager-only` does not change Desktop permissions.
 
 ## Management panel
 
