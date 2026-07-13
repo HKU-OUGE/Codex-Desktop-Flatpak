@@ -11,10 +11,12 @@
 进入能看到 `install.sh` 的仓库根目录（也就是刚刚克隆或解压出的目录），再执行：
 
 ```bash
-chmod +x install.sh build-x86_64-flatpak.sh upgrade-codex-desktop-flatpak.sh \
-  install-codex-desktop-integration.sh
+chmod +x install.sh
+find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o -name '*.cjs' \) -exec chmod +x {} +
 ./upgrade-codex-desktop-flatpak.sh
 ```
+
+如果解压后提示没有运行权限，先执行上面的授权命令即可。安装脚本启动后还会自动修复仓库内主脚本、管理器、测试脚本和辅助脚本的运行权限，后续无需重复操作。
 
 如果这个命令是在 Codex Desktop Flatpak 内部执行，脚本会自动通过 `flatpak-spawn --host` 切到宿主机继续执行。
 
