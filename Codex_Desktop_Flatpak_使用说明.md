@@ -8,9 +8,9 @@
 
 优先使用仓库根目录的升级入口。它会自动完成官方下载、构建、安装、桌面集成、基础验收和带回滚保护的重启：
 
+进入能看到 `install.sh` 的仓库根目录（也就是刚刚克隆或解压出的目录），再执行：
+
 ```bash
-export CODEX_FLATPAK_DIR="/path/to/codex-linux-x86_64-flatpak-redacted"
-cd "$CODEX_FLATPAK_DIR"
 ./upgrade-codex-desktop-flatpak.sh
 ```
 
@@ -71,6 +71,13 @@ codex-flatpak-manager serve --open
 
 `codex-flatpak-manager panel` 会打开线性工作流式的二级文字菜单，默认只显示上层节点；选择上层后按 `Enter` 进入下一级页面，此时只显示当前页面的子功能。使用 `↑/↓` 或 `j/k` 切换，`←`/`Backspace`/`h` 返回上级，`→`/`l` 进入下级，`Enter` 执行子功能，`r` 刷新，`u` 执行不重启升级，`U` 执行允许重启升级，`q` 退出。权限授权/撤销、Profile 创建/启动和 commit 回滚会在子菜单中要求输入。无法使用交互式终端时可用 `codex-flatpak-manager panel --plain` 输出一次性树形快照。
 
+首次安装时，`install.sh` 会询问文件权限：无额外权限、Home 目录读写、所有文件只读，或 Host 全部文件读写。检测到已有安装后，再次运行脚本会让你选择重新构建 Desktop，或只更新权限而不重新安装。也可以直接执行：
+
+```bash
+./install.sh --permissions-only --permission=home
+./install.sh --reinstall --permission=none
+```
+
 ## 包内内容
 
 - `com.openai.CodexLinuxX64.yml`：Flatpak manifest。
@@ -111,6 +118,8 @@ flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flath
 ```bash
 ./install.sh
 ```
+
+安装完成后，可以在应用菜单中点击“Codex Linux x86_64”桌面图标启动，也可以继续使用命令行启动：
 
 如只想手动构建，不安装管理器，可直接运行：
 
