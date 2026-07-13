@@ -3,6 +3,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+APP_ID="com.openai.CodexLinuxX64"
 INSTALL_DIR=${CODEX_MANAGER_INSTALL_DIR:-"$HOME/.local/share/codex-flatpak-manager"}
 CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 CONFIG_DIR="$CONFIG_HOME/codex-flatpak-manager"
@@ -12,6 +13,9 @@ MANAGER="$INSTALL_DIR/codex_flatpak_manager.py"
 UNIT="$SYSTEMD_DIR/codex-flatpak-manager.service"
 AUTO_UNIT="$SYSTEMD_DIR/codex-flatpak-manager-auto-upgrade.service"
 AUTO_TIMER="$SYSTEMD_DIR/codex-flatpak-manager-auto-upgrade.timer"
+DESKTOP_ACTION="install"
+ACTION_EXPLICIT=0
+PERMISSION_MODE=""
 
 if [ -n "${FLATPAK_ID:-}" ] && [ "${CODEX_INSTALL_ON_HOST:-0}" != "1" ]; then
   if ! command -v flatpak-spawn >/dev/null 2>&1; then
@@ -33,6 +37,127 @@ info() {
 
 warn() {
   printf '[WARN] %s\n' "$*" >&2
+}
+
+permission_label() {
+  case "$1" in
+    none) printf '%s' '无额外文件权限（保留应用默认 Documents 入口）' ;;
+    home) printf '%s' 'Home 目录读写权限' ;;
+    all) printf '%s' '所有文件只读权限' ;;
+    host) printf '%s' 'Host 全部文件读写权限' ;;
+    keep) printf '%s' '保留当前权限' ;;
+    *) printf '%s' '未知权限模式' ;;
+  esac
+}
+
+show_current_permissions() {
+  if command -v flatpak >/dev/null 2>&1 && flatpak info --user "$APP_ID" >/dev/null 2>&1; then
+    info "当前 Flatpak 文件权限："
+    flatpak override --user --show "$APP_ID" 2>/dev/null || true
+  else
+    info "当前还没有已安装的 Codex Flatpak。"
+  fi
+}
+
+choose_install_action() {
+  if [ "$INSTALL_DESKTOP" = "0" ]; then
+    DESKTOP_ACTION="skip"
+    return
+  fi
+  if [ "$ACTION_EXPLICIT" = "1" ]; then
+    return
+  fi
+  if [ "${CODEX_FORCE_REINSTALL:-0}" = "1" ]; then
+    DESKTOP_ACTION="install"
+    return
+  fi
+  if ! command -v flatpak >/dev/null 2>&1 ||
+    ! flatpak info --user "$APP_ID" >/dev/null 2>&1; then
+    DESKTOP_ACTION="install"
+    return
+  fi
+  if [ "${CODEX_NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; then
+    DESKTOP_ACTION="permissions"
+    info "Detected an existing Codex installation; non-interactive mode will update permissions only."
+    return
+  fi
+
+  show_current_permissions
+  printf '%s\n' '检测到 Codex Desktop 已安装，请选择：'
+  printf '%s' '  1) 重新下载、构建并安装 Desktop  2) 不重新安装，只更新权限  3) 取消 [2]: '
+  IFS= read -r reply || reply=""
+  case "$reply" in
+    1) DESKTOP_ACTION="install" ;;
+    2|"") DESKTOP_ACTION="permissions" ;;
+    3) info "已取消。"; exit 0 ;;
+    *) printf '[ERROR] 无效选择：%s\n' "$reply" >&2; exit 2 ;;
+  esac
+}
+
+choose_permission_mode() {
+  if [ "$INSTALL_DESKTOP" = "0" ]; then
+    PERMISSION_MODE="keep"
+    return
+  fi
+  if [ -n "${CODEX_PERMISSION_MODE:-}" ]; then
+    PERMISSION_MODE="$CODEX_PERMISSION_MODE"
+  elif [ "${CODEX_NONINTERACTIVE:-0}" = "1" ] || [ ! -t 0 ]; then
+    if [ "$DESKTOP_ACTION" = "install" ]; then
+      PERMISSION_MODE="none"
+    else
+      PERMISSION_MODE="keep"
+    fi
+    info "Non-interactive mode: $(permission_label "$PERMISSION_MODE")"
+    return
+  else
+    printf '\n%s\n' '请选择 Codex Desktop 的文件访问权限：'
+    printf '%s\n' '  1) 无额外文件权限（默认）'
+    printf '%s\n' '  2) 访问 Home 目录（读写）'
+    printf '%s\n' '  3) 访问所有文件（只读）'
+    printf '%s\n' '  4) Host 权限（所有文件读写，风险最高）'
+    if [ "$DESKTOP_ACTION" = "permissions" ]; then
+      printf '%s\n' '  5) 保留当前权限'
+    fi
+    printf '%s' '选择 [1]: '
+    IFS= read -r reply || reply=""
+    case "$reply" in
+      1|"") PERMISSION_MODE="none" ;;
+      2) PERMISSION_MODE="home" ;;
+      3) PERMISSION_MODE="all" ;;
+      4) PERMISSION_MODE="host" ;;
+      5) [ "$DESKTOP_ACTION" = "permissions" ] || {
+           printf '[ERROR] 无效选择：%s\n' "$reply" >&2; exit 2;
+         }
+         PERMISSION_MODE="keep" ;;
+      *) printf '[ERROR] 无效选择：%s\n' "$reply" >&2; exit 2 ;;
+    esac
+  fi
+  case "$PERMISSION_MODE" in
+    none|home|all|host|keep) ;;
+    *) printf '[ERROR] CODEX_PERMISSION_MODE 必须是 none、home、all、host 或 keep。\n' >&2; exit 2 ;;
+  esac
+  info "Selected file permission: $(permission_label "$PERMISSION_MODE")"
+}
+
+apply_permissions() {
+  mode="$1"
+  [ "$mode" = "keep" ] && {
+    info "Keeping current Flatpak file permissions"
+    return
+  }
+  flatpak override --user \
+    --nofilesystem=host \
+    --nofilesystem=home \
+    --nofilesystem=xdg-documents \
+    "$APP_ID"
+  case "$mode" in
+    none) ;;
+    home) flatpak override --user --filesystem=home "$APP_ID" ;;
+    all) flatpak override --user --filesystem=host:ro "$APP_ID" ;;
+    host) flatpak override --user --filesystem=host "$APP_ID" ;;
+  esac
+  info "Applied file permission: $(permission_label "$mode")"
+  flatpak override --user --show "$APP_ID" 2>/dev/null || true
 }
 
 print_web_url_when_ready() {
@@ -127,7 +252,7 @@ disable_auto_upgrade() {
 
 usage() {
   cat <<EOF
-Usage: ./install.sh [--enable] [--disable] [--manager-only]
+Usage: ./install.sh [--enable] [--disable] [--manager-only] [--reinstall] [--permissions-only]
 
 Download and build the repository's pinned Codex Desktop version, then install the optional manager.
 The existing manual build and upgrade scripts are not replaced.
@@ -135,6 +260,9 @@ The existing manual build and upgrade scripts are not replaced.
   --enable   Enable and start the optional loopback web service.
   --disable  Disable the optional web service if it is already enabled.
   --manager-only  Install only the manager; do not build or install Desktop.
+  --reinstall  Rebuild and reinstall Desktop without asking when it is already installed.
+  --permissions-only  Skip Desktop installation and update only the selected permissions.
+  --permission=MODE  Use none, home, all, host, or keep without prompting.
   --enable-auto   Deprecated compatibility option; automatic upgrades stay disabled.
   --disable-auto  Keep automatic upgrades disabled (the default).
 EOF
@@ -148,6 +276,9 @@ for arg in "$@"; do
     --enable) ENABLE=1 ;;
     --disable) DISABLE=1 ;;
     --manager-only) INSTALL_DESKTOP=0 ;;
+    --reinstall) DESKTOP_ACTION="install"; ACTION_EXPLICIT=1 ;;
+    --permissions-only) DESKTOP_ACTION="permissions"; ACTION_EXPLICIT=1 ;;
+    --permission=*) PERMISSION_MODE=${arg#*=} ;;
     --enable-auto) warn "--enable-auto is deprecated and ignored; automatic upgrades are disabled" ;;
     --disable-auto) : ;;
     -h|--help) usage; exit 0 ;;
@@ -155,8 +286,30 @@ for arg in "$@"; do
   esac
 done
 
-if [ "$INSTALL_DESKTOP" = "1" ]; then
+if [ "$DESKTOP_ACTION" = "permissions" ] && [ "$INSTALL_DESKTOP" = "0" ]; then
+  printf '[ERROR] --permissions-only cannot be combined with --manager-only.\n' >&2
+  exit 2
+fi
+
+choose_install_action
+choose_permission_mode
+
+if [ "$DESKTOP_ACTION" = "install" ]; then
   install_current_desktop
+elif [ "$DESKTOP_ACTION" = "permissions" ]; then
+  command -v flatpak >/dev/null 2>&1 || {
+    printf '[ERROR] Missing flatpak; cannot update permissions.\n' >&2
+    exit 1
+  }
+  flatpak info --user "$APP_ID" >/dev/null 2>&1 || {
+    printf '[ERROR] $APP_ID is not installed; run ./install.sh first.\n' >&2
+    exit 1
+  }
+  apply_permissions "$PERMISSION_MODE"
+fi
+
+if [ "$DESKTOP_ACTION" = "install" ]; then
+  apply_permissions "$PERMISSION_MODE"
 fi
 
 if [ ! -f "$ROOT/manager/codex_flatpak_manager.py" ]; then
