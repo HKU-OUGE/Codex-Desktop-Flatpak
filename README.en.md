@@ -28,6 +28,15 @@ find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o 
 
 Once started, the installer also repairs execute permissions for the repository's main scripts, manager, tests, and helper scripts. You do not need to repeat the manual permission step on later runs.
 
+Only the `apt` dependency commands above require `sudo`. Do not run `sudo ./install.sh` or `sudo sh install.sh`: the installer creates a per-user Flatpak and build cache. If the installer has already been run with `sudo`, repair the repository ownership once and rerun it as the normal desktop user:
+
+```bash
+sudo chown -R "$USER":"$(id -gn)" .
+sh install.sh
+```
+
+If root-owned or non-writable files are detected, the installer prints complete recovery commands for the current repository path. The builder extracts into a user-owned workspace, uses its own user-level npm cache, and invokes the asar CLI through `node`. It therefore does not depend on a possibly sudo-contaminated `~/.npm` directory or executable bits for an npm command shim.
+
 `install.sh` will:
 
 - download and build the current official version from public sources;

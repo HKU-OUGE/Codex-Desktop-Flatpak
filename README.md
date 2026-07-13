@@ -28,6 +28,15 @@ find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o 
 
 安装脚本启动后还会再次修复仓库内主脚本、管理器、测试脚本和辅助脚本的运行权限；以后重新运行安装脚本时无需重复手动授权。
 
+只有上面安装 Ubuntu 依赖的 `apt` 命令需要 `sudo`。不要使用 `sudo ./install.sh` 或 `sudo sh install.sh`，因为安装器创建的是用户级 Flatpak 和构建缓存。如果已经用 `sudo` 运行过，先在仓库根目录修复所有权，再以普通用户重跑：
+
+```bash
+sudo chown -R "$USER":"$(id -gn)" .
+sh install.sh
+```
+
+如果安装器检测到 root 所有或不可写的文件，会显示针对当前仓库路径的完整恢复命令。构建器会在用户工作目录中解包，使用独立的用户级 npm 缓存，并通过 `node` 直接运行 asar 工具，不依赖可能被 sudo 污染的 `~/.npm` 或 npm 命令 shim。
+
 `install.sh` 会：
 
 - 从公开地址下载并构建当前官方版本；

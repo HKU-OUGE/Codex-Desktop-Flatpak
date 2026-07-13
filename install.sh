@@ -3,6 +3,19 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+if [ "$(id -u)" -eq 0 ]; then
+  printf '[ERROR] Do not run this installer with sudo or as root. It installs a per-user Flatpak.\n' >&2
+  printf '[ERROR] 不要使用 sudo 或 root 运行安装脚本；它安装的是当前用户的 Flatpak。\n' >&2
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ] && id "$SUDO_USER" >/dev/null 2>&1; then
+    sudo_group=$(id -gn "$SUDO_USER")
+    printf '[INFO] If an earlier sudo run created root-owned files, repair them once with:\n' >&2
+    printf '  sudo chown -R %s:%s "%s"\n' "$SUDO_USER" "$sudo_group" "$ROOT" >&2
+    printf '  cd "%s" && sh install.sh\n' "$ROOT" >&2
+  fi
+  exit 1
+fi
+
 APP_ID="com.openai.CodexLinuxX64"
 INSTALL_DIR=${CODEX_MANAGER_INSTALL_DIR:-"$HOME/.local/share/codex-flatpak-manager"}
 CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
@@ -161,9 +174,58 @@ ensure_repository_scripts_executable() {
     "$ROOT"/tests/*.sh \
     "$ROOT"/tests/*.py; do
     [ -f "$script_path" ] || continue
-    chmod +x "$script_path"
+    [ -x "$script_path" ] || chmod +x "$script_path"
   done
   info "Ensured executable permissions for repository scripts"
+}
+
+workspace_permission_error() {
+  blocked_path=$1
+  current_user=$(id -un)
+  current_group=$(id -gn)
+  printf '[ERROR] The repository is not writable by the current user: %s\n' "$blocked_path" >&2
+  printf '[ERROR] 当前用户无法写入仓库：%s\n' "$blocked_path" >&2
+  printf '[INFO] This commonly happens after running the installer with sudo. Run these commands to repair ownership and continue:\n' >&2
+  printf '  sudo chown -R %s:%s "%s"\n' "$current_user" "$current_group" "$ROOT" >&2
+  printf '  cd "%s"\n' "$ROOT" >&2
+  printf '  sh install.sh\n' >&2
+  exit 1
+}
+
+check_workspace_permissions() {
+  [ -w "$ROOT" ] || workspace_permission_error "$ROOT"
+
+  if [ "$DESKTOP_ACTION" = "install" ] && [ "$INSTALL_DESKTOP" = "1" ]; then
+    current_uid=$(id -u)
+    for generated_path in \
+      "$ROOT/downloads" \
+      "$ROOT/flatpak-sources" \
+      "$ROOT/.flatpak-builder" \
+      "$ROOT/build-dir"; do
+      [ ! -e "$generated_path" ] || [ -w "$generated_path" ] ||
+        workspace_permission_error "$generated_path"
+      if [ -d "$generated_path" ]; then
+        blocked_path=$(find "$generated_path" -type d ! -writable -print -quit 2>/dev/null || true)
+        [ -z "$blocked_path" ] || workspace_permission_error "$blocked_path"
+        blocked_path=$(find "$generated_path" ! -uid "$current_uid" -print -quit 2>/dev/null || true)
+        [ -z "$blocked_path" ] || workspace_permission_error "$blocked_path"
+      fi
+    done
+  fi
+
+  for script_path in \
+    "$ROOT"/*.sh \
+    "$ROOT"/*.bash \
+    "$ROOT"/host-launcher/*.py \
+    "$ROOT"/manager/*.py \
+    "$ROOT"/packaging/*.sh \
+    "$ROOT"/scripts/*.cjs \
+    "$ROOT"/tests/*.sh \
+    "$ROOT"/tests/*.py; do
+    [ -f "$script_path" ] || continue
+    [ -x "$script_path" ] || [ -w "$script_path" ] ||
+      workspace_permission_error "$script_path"
+  done
 }
 
 permission_label() {
@@ -445,7 +507,7 @@ install_current_desktop() {
   done
 
   info "Downloading and building the current official Codex Desktop version"
-  "$ROOT/build-x86_64-flatpak.sh"
+  bash "$ROOT/build-x86_64-flatpak.sh"
 
   app_version=$(build_info_value codexAppVersion)
   cli_tag=$(build_info_value codexCliReleaseTag)
@@ -454,7 +516,7 @@ install_current_desktop() {
   info "Installed current Codex Desktop: app=$app_version, cli=$cli_tag"
 
   if [ -x "$ROOT/install-codex-desktop-integration.sh" ]; then
-    CODEX_INTEGRATION_SKIP_RESTART=1 "$ROOT/install-codex-desktop-integration.sh"
+    CODEX_INTEGRATION_SKIP_RESTART=1 bash "$ROOT/install-codex-desktop-integration.sh"
   fi
 
   installed_commit=$(flatpak info --user --show-commit com.openai.CodexLinuxX64 2>/dev/null || true)
@@ -520,6 +582,7 @@ if [ "$DESKTOP_ACTION" = "permissions" ] && [ "$INSTALL_DESKTOP" = "0" ]; then
 fi
 
 detect_current_permission_mode
+check_workspace_permissions
 ensure_repository_scripts_executable
 choose_install_action
 choose_permission_mode

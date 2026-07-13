@@ -11,6 +11,10 @@ fi
 python3 -m py_compile "$ROOT/manager/codex_flatpak_manager.py"
 python3 -m unittest discover -s "$ROOT/manager" -p 'test*.py'
 python3 "$ROOT/manager/codex_flatpak_manager.py" --help | grep -Fq 'panel'
+grep -Fq 'Do not run this installer with sudo or as root' "$ROOT/install.sh"
+grep -Fq 'sudo chown -R %s:%s' "$ROOT/install.sh"
+grep -Fq 'check_workspace_permissions' "$ROOT/install.sh"
+grep -Fq 'bash "$ROOT/build-x86_64-flatpak.sh"' "$ROOT/install.sh"
 
 TEMP_HOME=$(mktemp -d)
 trap 'rm -rf "$TEMP_HOME"' EXIT

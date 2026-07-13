@@ -18,6 +18,15 @@ find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o 
 
 如果解压后提示没有运行权限，先执行上面的授权命令即可。安装脚本启动后还会自动修复仓库内主脚本、管理器、测试脚本和辅助脚本的运行权限，后续无需重复操作。
 
+不要使用 `sudo ./install.sh`、`sudo sh install.sh` 或 `sudo ./upgrade-codex-desktop-flatpak.sh`。这些脚本安装的是用户级 Flatpak；只有安装 Ubuntu 依赖的 `apt` 命令需要 `sudo`。如果之前已经用 root 运行，在仓库根目录执行：
+
+```bash
+sudo chown -R "$USER":"$(id -gn)" .
+sh install.sh
+```
+
+安装器发现所有权或可写性问题时，会按当前实际路径打印完整的 `chown`、`cd` 和重跑命令。
+
 如果这个命令是在 Codex Desktop Flatpak 内部执行，脚本会自动通过 `flatpak-spawn --host` 切到宿主机继续执行。
 
 只构建和安装、不重启当前 GUI：
@@ -36,7 +45,7 @@ find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o 
 
 ## 可选管理器和本地网页面板
 
-管理器不会替换原有手动链路，只是调用同一个升级脚本。`install.sh` 会下载并构建仓库锁定的当前 Codex Desktop，同时安装管理器，不会自动启动网页服务：
+管理器不会替换原有手动链路，只是调用同一个升级脚本。`install.sh` 会下载并构建当前官方 Codex Desktop，同时安装管理器，不会自动启动网页服务：
 
 ```bash
 ./install.sh

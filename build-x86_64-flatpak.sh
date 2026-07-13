@@ -10,8 +10,20 @@ CODEX_REFRESH_DOWNLOADS="${CODEX_REFRESH_DOWNLOADS:-1}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOWNLOADS="$ROOT/downloads"
 SOURCES="$ROOT/flatpak-sources"
-WORK_DIR="$(mktemp -d "$ROOT/.build.XXXXXX")"
-trap 'rm -rf "$WORK_DIR"' EXIT
+
+if [ "$(id -u)" -eq 0 ]; then
+  printf '\033[1;31m[ERROR]\033[0m Do not run this build with sudo or as root; use the normal desktop user.\n' >&2
+  printf '\033[1;31m[ERROR]\033[0m 不要使用 sudo 或 root 运行构建，请使用普通桌面用户。\n' >&2
+  exit 1
+fi
+
+PROJECT_DIR="${CODEX_FLATPAK_PROJECT_DIR:-$HOME/codex-flatpak-workspace}"
+WORK_PARENT="${CODEX_BUILD_TMPDIR:-$PROJECT_DIR/tmp}"
+NPM_CACHE_DIR="${CODEX_NPM_CACHE_DIR:-$PROJECT_DIR/npm-cache}"
+WORK_DIR=""
+ASAR_TOOL_DIR=""
+ASAR_CLI=""
+trap '[ -z "$WORK_DIR" ] || rm -rf "$WORK_DIR"' EXIT
 
 if [ -s "$HOME/.nvm/nvm.sh" ]; then
   # Keep builds reproducible when the script is launched from a non-login shell.
@@ -44,8 +56,6 @@ CODEX_CODE_MODE_HOST_URL="${CODEX_CODE_MODE_HOST_URL:-}"
 CODEX_LANG="${CODEX_LANG:-auto}"
 CODEX_MIRROR_MODE="${CODEX_MIRROR_MODE:-auto}"
 CODEX_USE_MIRROR=0
-
-PROJECT_DIR="${CODEX_FLATPAK_PROJECT_DIR:-$HOME/codex-flatpak-workspace}"
 
 info() { printf '\033[1;34m[INFO]\033[0m  %s\n' "$*"; }
 ok() { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
@@ -156,6 +166,62 @@ require() {
     fi
   done
   [ "$missing" = 0 ] || die "Install the missing tools and rerun this script."
+}
+
+workspace_permission_error() {
+  local blocked_path="$1"
+  local current_user current_group
+  current_user="$(id -un)"
+  current_group="$(id -gn)"
+  printf '\033[1;31m[ERROR]\033[0m Repository path is not writable: %s\n' "$blocked_path" >&2
+  printf '\033[1;31m[ERROR]\033[0m 仓库路径无法写入：%s\n' "$blocked_path" >&2
+  printf 'An earlier sudo run may have created root-owned files. Run these commands to repair ownership and continue:\n' >&2
+  printf '  sudo chown -R %s:%s "%s"\n' "$current_user" "$current_group" "$ROOT" >&2
+  printf '  cd "%s"\n' "$ROOT" >&2
+  printf '  bash build-x86_64-flatpak.sh\n' >&2
+  exit 1
+}
+
+check_build_workspace_permissions() {
+  local generated_path blocked_path current_uid
+  current_uid="$(id -u)"
+  [ -w "$ROOT" ] || workspace_permission_error "$ROOT"
+  for generated_path in "$DOWNLOADS" "$SOURCES" "$ROOT/.flatpak-builder" "$ROOT/build-dir"; do
+    [ ! -e "$generated_path" ] || [ -w "$generated_path" ] ||
+      workspace_permission_error "$generated_path"
+    if [ -d "$generated_path" ]; then
+      blocked_path="$(find "$generated_path" -type d ! -writable -print -quit 2>/dev/null || true)"
+      [ -z "$blocked_path" ] || workspace_permission_error "$blocked_path"
+      blocked_path="$(find "$generated_path" ! -uid "$current_uid" -print -quit 2>/dev/null || true)"
+      [ -z "$blocked_path" ] || workspace_permission_error "$blocked_path"
+    fi
+  done
+}
+
+prepare_work_dir() {
+  local current_user current_group user_path
+  current_user="$(id -un)"
+  current_group="$(id -gn)"
+  for user_path in "$PROJECT_DIR" "$WORK_PARENT" "$NPM_CACHE_DIR"; do
+    if [ -e "$user_path" ] && [ ! -w "$user_path" ]; then
+      printf '\033[1;31m[ERROR]\033[0m User build path is not writable: %s\n' "$user_path" >&2
+      printf 'Run these commands to repair it and continue:\n' >&2
+      printf '  sudo chown -R %s:%s "%s"\n' "$current_user" "$current_group" "$user_path" >&2
+      printf '  cd "%s"\n' "$ROOT" >&2
+      printf '  bash build-x86_64-flatpak.sh\n' >&2
+      exit 1
+    fi
+  done
+  if ! mkdir -p "$WORK_PARENT" "$NPM_CACHE_DIR"; then
+    printf '\033[1;31m[ERROR]\033[0m Could not create user build paths under: %s\n' "$PROJECT_DIR" >&2
+    printf 'Create a writable directory and rerun with CODEX_BUILD_TMPDIR=/path/to/writable/tmp.\n' >&2
+    exit 1
+  fi
+  export npm_config_cache="$NPM_CACHE_DIR"
+  WORK_DIR="$(mktemp -d "$WORK_PARENT/build.XXXXXX")" ||
+    die "Could not create a temporary build directory under $WORK_PARENT"
+  ASAR_TOOL_DIR="$WORK_DIR/asar-tool"
+  ASAR_CLI="$ASAR_TOOL_DIR/node_modules/@electron/asar/bin/asar.js"
 }
 
 download() {
@@ -342,14 +408,24 @@ PY
   done <<<"$resolved"
 }
 
+ensure_asar_cli() {
+  if [ ! -f "$ASAR_CLI" ]; then
+    info "Preparing the asar reader"
+    mkdir -p "$ASAR_TOOL_DIR"
+    npm install --prefix "$ASAR_TOOL_DIR" --no-save --ignore-scripts --no-audit --no-fund "$ASAR_NPM_PACKAGE"
+  fi
+  [ -f "$ASAR_CLI" ] || die "Could not prepare $ASAR_NPM_PACKAGE"
+}
+
+run_asar() {
+  ensure_asar_cli
+  node "$ASAR_CLI" "$@"
+}
+
 extract_with_asar() {
   local asar_file="$1"
   local out_dir="$2"
-  if command -v asar >/dev/null 2>&1; then
-    asar extract "$asar_file" "$out_dir"
-  else
-    npm exec --yes "$ASAR_NPM_PACKAGE" -- extract "$asar_file" "$out_dir"
-  fi
+  run_asar extract "$asar_file" "$out_dir"
 }
 
 extract_asar_file() {
@@ -360,11 +436,7 @@ extract_asar_file() {
   out_dir="$(mktemp -d "$WORK_DIR/asar-file.XXXXXX")"
   (
     cd "$out_dir"
-    if command -v asar >/dev/null 2>&1; then
-      asar extract-file "$asar_file" "$file_name"
-    else
-      npm exec --yes "$ASAR_NPM_PACKAGE" -- extract-file "$asar_file" "$file_name"
-    fi
+    run_asar extract-file "$asar_file" "$file_name"
   )
   [ -f "$out_dir/$file_name" ] || die "Could not extract $file_name from app.asar"
   mkdir -p "$(dirname "$out_file")"
@@ -373,11 +445,7 @@ extract_asar_file() {
 
 list_with_asar() {
   local asar_file="$1"
-  if command -v asar >/dev/null 2>&1; then
-    asar list "$asar_file"
-  else
-    npm exec --yes "$ASAR_NPM_PACKAGE" -- list "$asar_file"
-  fi
+  run_asar list "$asar_file"
 }
 
 find_app_resources() {
@@ -658,6 +726,8 @@ main() {
   configure_source_policy
   print_notice
   require 7z curl file flatpak flatpak-builder node npm python3 sha256sum tar unzip
+  check_build_workspace_permissions
+  prepare_work_dir
   python3 -c 'from PIL import Image' >/dev/null 2>&1 ||
     die "Missing Python Pillow module required to resize Flatpak icons."
   mkdir -p "$DOWNLOADS" "$SOURCES" "$PROJECT_DIR"
@@ -707,7 +777,9 @@ main() {
   info "Reading app package metadata"
   local package_json="$WORK_DIR/package.json"
   extract_asar_file "$resources/app.asar" "package.json" "$package_json"
-  list_with_asar "$resources/app.asar" | grep -q '^/webview/index.html$' || die "app.asar is missing webview/index.html"
+  local asar_listing
+  asar_listing="$(list_with_asar "$resources/app.asar")" || die "Failed to inspect app.asar"
+  grep -qx '/webview/index.html' <<<"$asar_listing" || die "app.asar is missing webview/index.html"
   local better_sqlite3_version
   local node_pty_version
   better_sqlite3_version="$(node -e "const p=require('$package_json'); console.log((p.dependencies&&p.dependencies['better-sqlite3']) || '^12.9.0')")"

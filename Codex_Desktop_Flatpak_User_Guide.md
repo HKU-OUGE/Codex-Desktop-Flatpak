@@ -6,7 +6,7 @@ This guide covers the Linux x86_64 Flatpak build of Codex Desktop in this reposi
 
 ## Recommended one-command upgrade
 
-Run the upgrade entry point from the repository root. It downloads the pinned public sources, builds and installs the Flatpak, applies desktop integration, performs basic checks, and uses rollback protection when restarting the application:
+Run the upgrade entry point from the repository root. It downloads the current official public sources, builds and installs the Flatpak, applies desktop integration, performs basic checks, and uses rollback protection when restarting the application:
 
 Enter the repository root—the directory that contains `install.sh`—after cloning or extracting the repository, then run:
 
@@ -17,6 +17,15 @@ find . -maxdepth 2 -type f \( -name '*.sh' -o -name '*.bash' -o -name '*.py' -o 
 ```
 
 If extracted files are not executable, run the bootstrap command above first. Once started, the installer also repairs execute permissions for the repository's main scripts, manager, tests, and helper scripts, so later runs do not need the manual step.
+
+Do not use `sudo ./install.sh`, `sudo sh install.sh`, or `sudo ./upgrade-codex-desktop-flatpak.sh`. These scripts install a per-user Flatpak; only the `apt` commands used to install Ubuntu dependencies require `sudo`. If an earlier root run created files in the repository, run the following from the repository root:
+
+```bash
+sudo chown -R "$USER":"$(id -gn)" .
+sh install.sh
+```
+
+When ownership or writability problems are found, the installer prints complete `chown`, `cd`, and rerun commands using the actual repository path.
 
 When run inside the Codex Desktop Flatpak, the script automatically switches to the host through `flatpak-spawn --host`.
 
@@ -36,7 +45,7 @@ See the [English README](README.en.md) or [中文 README](README.md) for the sec
 
 ## Optional manager and local web panel
 
-The manager does not replace the existing manual workflow; it calls the same upgrade script. `install.sh` downloads and builds the pinned Desktop version, installs the manager, and does not start the web service unless requested:
+The manager does not replace the existing manual workflow; it calls the same upgrade script. `install.sh` downloads and builds the current official Desktop version, installs the manager, and does not start the web service unless requested:
 
 ```bash
 ./install.sh

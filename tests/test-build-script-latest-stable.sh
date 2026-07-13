@@ -117,3 +117,13 @@ grep -Fq 'CODEX_APP_VERSION="${CODEX_APP_VERSION:-latest}"' "$SCRIPT" ||
   fail "Desktop DMG must not use a stale fixed SHA256"
 grep -Fq 'CODEX_REFRESH_DOWNLOADS=1 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"' "$SCRIPT" ||
   fail "Desktop DMG must refresh the mutable official URL"
+grep -Fq 'node "$ASAR_CLI" "$@"' "$SCRIPT" ||
+  fail "asar must run through node instead of relying on executable permissions"
+! grep -Fq 'command -v asar' "$SCRIPT" ||
+  fail "build script must not select an arbitrary global asar executable"
+! grep -Fq 'npm exec --yes "$ASAR_NPM_PACKAGE"' "$SCRIPT" ||
+  fail "build script must not rely on npm-generated asar executable shims"
+grep -Fq 'Do not run this build with sudo or as root' "$SCRIPT" ||
+  fail "build script must reject root builds"
+grep -Fq 'export npm_config_cache="$NPM_CACHE_DIR"' "$SCRIPT" ||
+  fail "build script must isolate npm cache from sudo-contaminated user state"
