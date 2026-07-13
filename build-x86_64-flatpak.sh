@@ -41,6 +41,9 @@ CODEX_CLI_URL="${CODEX_CLI_URL:-}"
 CODEX_CODE_MODE_HOST_ASSET="${CODEX_CODE_MODE_HOST_ASSET:-codex-code-mode-host-${CODEX_TARGET_TRIPLE}.tar.gz}"
 CODEX_CODE_MODE_HOST_SHA256="${CODEX_CODE_MODE_HOST_SHA256:-}"
 CODEX_CODE_MODE_HOST_URL="${CODEX_CODE_MODE_HOST_URL:-}"
+CODEX_LANG="${CODEX_LANG:-auto}"
+CODEX_MIRROR_MODE="${CODEX_MIRROR_MODE:-auto}"
+CODEX_USE_MIRROR=0
 
 PROJECT_DIR="${CODEX_FLATPAK_PROJECT_DIR:-$HOME/codex-flatpak-workspace}"
 
@@ -48,6 +51,101 @@ info() { printf '\033[1;34m[INFO]\033[0m  %s\n' "$*"; }
 ok() { printf '\033[1;32m[OK]\033[0m    %s\n' "$*"; }
 warn() { printf '\033[1;33m[WARN]\033[0m  %s\n' "$*" >&2; }
 die() { printf '\033[1;31m[ERROR]\033[0m %s\n' "$*" >&2; exit 1; }
+
+detect_language() {
+  case "$CODEX_LANG" in
+    zh|zh_*) CODEX_LANG="zh" ;;
+    en|en_*) CODEX_LANG="en" ;;
+    auto|"")
+      local locale_name="${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}"
+      case "$locale_name" in
+        zh*|*_CN*|*_TW*|*_HK*|*_MO*) CODEX_LANG="zh" ;;
+        *) CODEX_LANG="en" ;;
+      esac
+      ;;
+    *)
+      warn "Unsupported CODEX_LANG=$CODEX_LANG; falling back to automatic detection."
+      CODEX_LANG="auto"
+      detect_language
+      ;;
+  esac
+}
+
+is_china_timezone() {
+  local timezone="${TZ:-}"
+  if [ -z "$timezone" ] && command -v timedatectl >/dev/null 2>&1; then
+    timezone="$(timedatectl show -p Timezone --value 2>/dev/null || true)"
+  fi
+  if [ -z "$timezone" ] && [ -e /etc/localtime ] && command -v readlink >/dev/null 2>&1; then
+    timezone="$(readlink -f /etc/localtime 2>/dev/null | sed 's#^.*/zoneinfo/##')"
+  fi
+  if [ -z "$timezone" ] && [ -r /etc/timezone ]; then
+    timezone="$(sed -n '1p' /etc/timezone)"
+  fi
+  case "$timezone" in
+    Asia/Shanghai|Asia/Chongqing|Asia/Harbin|Asia/Kashgar|Asia/Macao|Asia/Urumqi|Asia/Hong_Kong|Hongkong|PRC)
+      return 0 ;;
+  esac
+  return 1
+}
+
+configure_source_policy() {
+  case "$CODEX_MIRROR_MODE" in
+    auto|always|never) ;;
+    *)
+      warn "Unsupported CODEX_MIRROR_MODE=$CODEX_MIRROR_MODE; using auto."
+      CODEX_MIRROR_MODE="auto"
+      ;;
+  esac
+  CODEX_USE_MIRROR=0
+  if [ "$CODEX_MIRROR_MODE" = "always" ] ||
+    { [ "$CODEX_MIRROR_MODE" = "auto" ] && is_china_timezone; }; then
+    CODEX_USE_MIRROR=1
+  fi
+}
+
+print_notice() {
+  if [ "$CODEX_LANG" = "zh" ]; then
+    cat <<'NOTICE'
+=== Codex Desktop Flatpak 构建程序 ===
+说明：根据系统语言显示提示；本程序会从公开地址下载锁定版本的 Codex Desktop、Codex CLI 和 Electron，并在本机编译 Flatpak 输入。
+免责声明：本项目不是 OpenAI 官方 Linux 安装包；构建结果、许可证合规性和运行风险由使用者自行确认并承担。
+NOTICE
+  else
+    cat <<'NOTICE'
+=== Codex Desktop Flatpak build ===
+Notice: Messages follow the system language. This script downloads pinned Codex Desktop, Codex CLI, and Electron sources, then builds the Flatpak locally.
+Disclaimer: This is not an official OpenAI Linux package. Verify the build result, licenses, and runtime risks yourself.
+NOTICE
+  fi
+  if [ "$CODEX_USE_MIRROR" = "1" ]; then
+    if [ "$CODEX_LANG" = "zh" ]; then
+      info "检测到中国时区：Flatpak SDK 将优先使用 USTC Flathub 镜像；Codex Desktop/CLI/Electron 仍使用官方地址并校验摘要。"
+    else
+      info "China timezone detected: the Flatpak SDK will prefer the USTC Flathub mirror; Codex Desktop/CLI/Electron stay on official URLs with checksum verification."
+    fi
+  else
+    if [ "$CODEX_LANG" = "zh" ]; then
+      info "使用官方 Flathub 地址；Codex Desktop/CLI/Electron 始终使用官方地址并校验摘要。"
+    else
+      info "Using the official Flathub URL; Codex Desktop/CLI/Electron always use official URLs with checksum verification."
+    fi
+  fi
+}
+
+configure_flathub_remote() {
+  local mirror_url="${CODEX_FLATHUB_REMOTE_URL:-https://mirrors.ustc.edu.cn/flathub}"
+  local official_url="https://flathub.org/repo/flathub.flatpakrepo"
+  flatpak --user remote-add --if-not-exists flathub "$official_url"
+  if [ "$CODEX_USE_MIRROR" = "1" ]; then
+    if flatpak --user remote-modify flathub --url="$mirror_url"; then
+      info "Configured Flathub mirror: $mirror_url"
+    else
+      warn "Could not configure the Flathub mirror; falling back to the official Flathub URL."
+      flatpak --user remote-modify flathub --url="https://dl.flathub.org/repo/"
+    fi
+  fi
+}
 
 require() {
   local missing=0
@@ -518,18 +616,19 @@ PY
 }
 
 main() {
-  cat <<'NOTICE'
-=== Codex Desktop Flatpak 构建程序 ===
-说明：本程序会从公开地址下载锁定版本的 Codex Desktop、Codex CLI 和 Electron，并在本机编译 Flatpak 输入。
-免责声明：本项目不是 OpenAI 官方 Linux 安装包；构建结果、许可证合规性和运行风险由使用者自行确认并承担。
-NOTICE
+  detect_language
+  configure_source_policy
+  print_notice
   require 7z curl file flatpak flatpak-builder node npm python3 sha256sum tar unzip
   python3 -c 'from PIL import Image' >/dev/null 2>&1 ||
     die "Missing Python Pillow module required to resize Flatpak icons."
   mkdir -p "$DOWNLOADS" "$SOURCES" "$PROJECT_DIR"
 
   info "Ensuring Flatpak runtime is available"
-  flatpak info --user "${RUNTIME_ID}//${RUNTIME_VERSION}" >/dev/null
+  if ! flatpak info --user "${RUNTIME_ID}//${RUNTIME_VERSION}" >/dev/null 2>&1; then
+    configure_flathub_remote
+    flatpak --user install -y flathub "${RUNTIME_ID}//${RUNTIME_VERSION}"
+  fi
 
   info "Downloading Codex Desktop $CODEX_APP_VERSION"
   CODEX_REFRESH_DOWNLOADS=0 download "$CODEX_APP_DMG_URL" "$CODEX_APP_DMG"
